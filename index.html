@@ -153,6 +153,22 @@
   <!-- ==================== MAIN WORKSPACE ==================== -->
   <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 pt-5 space-y-5">
 
+    <!-- Persistent Rejection Alert Banner -->
+    <div id="rejection-alert-banner" role="alert" class="hidden rounded-2xl bg-rose-50 border border-rose-200 px-4 py-3 text-rose-900 shadow-2xs flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <i data-lucide="shield-alert" class="w-4 h-4 text-rose-600 shrink-0"></i>
+        <p id="rejection-alert-text" class="text-xs sm:text-sm font-bold truncate"></p>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <button type="button" onclick="viewRejectedSubmissions()" class="px-2.5 py-1 rounded-lg text-[11px] font-extrabold bg-rose-600 hover:bg-rose-700 text-white transition cursor-pointer">
+          View Rejected
+        </button>
+        <button type="button" onclick="dismissRejectionAlert()" aria-label="Dismiss rejection alert" class="p-1 rounded-lg text-rose-600 hover:bg-rose-100 transition cursor-pointer">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+
     <!-- Hero Summary Banner -->
     <section class="rounded-3xl bg-gradient-to-r from-emerald-500 via-teal-500 to-indigo-600 p-5 sm:p-6 text-white shadow-lg shadow-emerald-600/15 relative overflow-hidden">
       <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
@@ -549,6 +565,22 @@
           <label class="block text-xs font-bold text-slate-700 mb-1">Steps (1 per line)</label>
           <textarea id="om-steps" rows="3" placeholder="Install app &amp; register&#10;Complete KYC&#10;Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500"></textarea>
         </div>
+
+        <!-- Optional Auto-Remove Offer Based on Started Users -->
+        <div class="bg-amber-50/50 border border-amber-200/80 rounded-2xl p-3.5 space-y-2.5">
+          <label for="om-auto-remove-starts" class="flex items-center justify-between gap-3 cursor-pointer">
+            <div class="space-y-0.5 pr-2">
+              <span class="text-xs font-extrabold text-slate-900 block">Auto-Remove After Started Users</span>
+              <span class="text-[11px] text-slate-500 block leading-snug">Optional: pause/remove active offer once a target number of users start</span>
+            </div>
+            <input type="checkbox" id="om-auto-remove-starts" onchange="toggleMaxStartsInput()" class="w-4 h-4 accent-amber-600 shrink-0" />
+          </label>
+          <div id="om-max-starts-wrap" class="hidden pt-1">
+            <label for="om-max-started-users" class="block text-[11px] font-bold text-slate-700 mb-1">Max Started Users Limit</label>
+            <input type="number" id="om-max-started-users" min="1" placeholder="e.g., 50" class="w-full px-3 py-2 text-xs sm:text-sm bg-white border border-amber-200 rounded-xl focus:outline-none focus:border-amber-500" />
+          </div>
+        </div>
+
         <!-- Optional task submission fields -->
         <label for="om-collect-mobile" class="flex items-center justify-between gap-3 bg-slate-50 hover:bg-emerald-50/40 border border-slate-200 rounded-2xl p-3.5 cursor-pointer transition">
           <div class="space-y-0.5 pr-2">
@@ -635,6 +667,7 @@
       submissions: [],
       withdrawals: [],
       offers: [],
+      userTasks: [],
       tickets: []
     };
 
@@ -646,6 +679,27 @@
     let searchTerm = '';
     let rejectCtx = null;
     let payCtxId = null;
+
+    function showRejectionAlert(message) {
+      const banner = document.getElementById('rejection-alert-banner');
+      const textEl = document.getElementById('rejection-alert-text');
+      if (banner && textEl) {
+        textEl.textContent = message;
+        banner.classList.remove('hidden');
+        if (window.lucide) lucide.createIcons();
+      }
+      toast(message, 'error');
+    }
+
+    function dismissRejectionAlert() {
+      const banner = document.getElementById('rejection-alert-banner');
+      if (banner) banner.classList.add('hidden');
+    }
+
+    function viewRejectedSubmissions() {
+      switchTab('tasks');
+      setTaskFilter('Rejected');
+    }
 
     function setDbStatus(connected, errMsg = '') {
       const dot = document.getElementById('db-status-dot');
@@ -663,6 +717,55 @@
         txt.textContent = errMsg || 'Sync Error';
         pill.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200/80';
         pillLabel.textContent = 'Sync Error';
+      }
+    }
+
+    // ==================== AUTO-REMOVE OFFERS BY STARTED USERS ====================
+    function getOfferStartedCount(offerId) {
+      const matchingUserIds = new Set();
+      state.userTasks.forEach((ut) => {
+        if (String(ut.offerId || '') === String(offerId) && ut.userId) {
+          matchingUserIds.add(String(ut.userId));
+        }
+      });
+
+      const matchingSubUserIds = new Set();
+      state.submissions.forEach((sub) => {
+        if (String(sub.taskId || '') === String(offerId) && sub.userId) {
+          matchingSubUserIds.add(String(sub.userId));
+        }
+      });
+
+      const unionCount = new Set([...matchingUserIds, ...matchingSubUserIds]).size;
+      const offerObj = state.offers.find((o) => String(o.id) === String(offerId));
+      const explicitCount = Number(offerObj?.startedCount || 0);
+      return Math.max(unionCount, explicitCount);
+    }
+
+    async function enforceStartedUserAutoRemove() {
+      if (!listenersStarted || !state.offers.length) return;
+
+      for (const offer of state.offers) {
+        const limit = Number(offer.maxStartedUsers || 0);
+        if (!offer.autoRemoveByStarts || limit <= 0) continue;
+
+        const startedCount = getOfferStartedCount(offer.id);
+        const shouldAutoRemove = startedCount >= limit;
+
+        if (shouldAutoRemove && (offer.active !== false || offer.autoRemovedByStarts !== true)) {
+          offer.active = false;
+          offer.autoRemovedByStarts = true;
+          try {
+            await db.collection('offers').doc(offer.id).update({
+              active: false,
+              autoRemovedByStarts: true,
+              autoRemovedReason: `Reached ${startedCount}/${limit} started users`
+            });
+            toast(`Auto-removed "${offer.name}" (${startedCount}/${limit} users started)`, 'info');
+          } catch (err) {
+            console.error('Auto-remove by started users error:', err);
+          }
+        }
       }
     }
 
@@ -713,9 +816,21 @@
             primeBadge: Boolean(data.primeBadge),
             collectMobile: Boolean(data.collectMobile),
             allowProofSubmission: Boolean(data.allowProofSubmission ?? data.requireProof),
+            autoRemoveByStarts: Boolean(data.autoRemoveByStarts),
+            maxStartedUsers: Number(data.maxStartedUsers || 0) || null,
+            startedCount: Number(data.startedCount || 0),
+            autoRemovedByStarts: Boolean(data.autoRemovedByStarts),
             steps: Array.isArray(data.steps) ? data.steps : []
           };
         });
+        enforceStartedUserAutoRemove();
+        render();
+      }, (err) => setDbStatus(false, err.code));
+
+      db.collection('userTasks').onSnapshot((snap) => {
+        setDbStatus(true);
+        state.userTasks = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        enforceStartedUserAutoRemove();
         render();
       }, (err) => setDbStatus(false, err.code));
 
@@ -724,6 +839,7 @@
         state.submissions = snap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
           .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+        enforceStartedUserAutoRemove();
         render();
       }, (err) => setDbStatus(false, err.code));
 
@@ -911,14 +1027,14 @@
       });
 
       if (!list.length) {
-        box.innerHTML = emptyCard('No task submissions in this filter');
+        box.innerHTML = emptyCard(taskFilter === 'Rejected' ? 'No rejected task submissions found' : 'No task submissions in this filter');
         return;
       }
 
       box.innerHTML = list.map((s) => {
         const isKyc = String(s.category || '').toLowerCase() === 'kyc';
         return `
-          <div class="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div class="bg-white rounded-3xl p-4 sm:p-5 border ${s.status === 'Rejected' ? 'border-rose-200/90' : 'border-slate-200/80'} shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div class="flex items-start gap-3.5">
               <div class="w-11 h-11 rounded-2xl ${isKyc ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600'} font-extrabold text-sm flex items-center justify-center shrink-0">
                 ${escapeHtml(String(s.taskName || 'TK').slice(0, 2).toUpperCase())}
@@ -937,7 +1053,7 @@
                 <p class="text-[11px] text-slate-400">
                   ${escapeHtml(s.date || '')} ${s.referrer ? `• Upliner: <strong class="text-indigo-600">${escapeHtml(s.referrer)}</strong>` : ''}
                 </p>
-                ${s.status === 'Rejected' && s.rejectReason ? `<p class="text-[11px] text-rose-600 font-medium">Reason: ${escapeHtml(s.rejectReason)}</p>` : ''}
+                ${s.status === 'Rejected' && s.rejectReason ? `<p class="text-[11px] text-rose-600 font-semibold">Rejected Reason: ${escapeHtml(s.rejectReason)}</p>` : ''}
               </div>
             </div>
 
@@ -1219,7 +1335,7 @@
               await db.collection('userTasks').doc(`${s.userId}_${s.taskId}`).set({
                 userId: s.userId,
                 offerId: s.taskId,
-                status: 'expired',
+                status: 'rejected',
                 rejectReason: reason
               }, { merge: true });
             }
@@ -1228,17 +1344,19 @@
               await db.collection('transactions').add({
                 userId: s.userId,
                 category: 'earnings',
-                type: 'failed',
-                badge: 'Failed Task',
+                type: 'rejected',
+                badge: 'Rejected Task',
                 amount: Number(s.reward || 0),
                 title: `₹${Number(s.reward || 0).toFixed(2)} Task Attempt`,
                 subtitle: `Task Rejected - ${s.taskName} (${reason})`,
-                status: 'Failed',
+                status: 'Rejected',
                 date: formatNowDate(),
                 createdAt: FieldValue.serverTimestamp()
               });
             }
-            toast(`Rejected ${s.userName}'s task proof.`, 'error');
+
+            setTaskFilter('Rejected');
+            showRejectionAlert(`Alert: ${s.userName || 'User'}'s "${s.taskName || 'Task'}" submission moved to Rejected (${reason}).`);
           }
         } else {
           const w = state.withdrawals.find((x) => x.id === rejectCtx.id);
@@ -1269,6 +1387,12 @@
       render();
     }
 
+    function toggleMaxStartsInput() {
+      const enabled = document.getElementById('om-auto-remove-starts').checked;
+      const wrap = document.getElementById('om-max-starts-wrap');
+      if (wrap) wrap.classList.toggle('hidden', !enabled);
+    }
+
     function renderOffers() {
       const box = document.getElementById('offers-container');
       const list = state.offers.filter((o) => {
@@ -1280,12 +1404,14 @@
       });
 
       if (!list.length) {
-        box.innerHTML = `<div class="col-span-full">${emptyCard('No tasks found. Click "Add New Task" to create your first task.')}</div>`;
+        box.innerHTML = `<div class="col-span-full">${emptyCard('No tasks found. Click "Add New Offer" to create your first task.')}</div>`;
         return;
       }
 
       box.innerHTML = list.map((o) => {
         const isKyc = o.category === 'kyc';
+        const startedCount = getOfferStartedCount(o.id);
+        const hasStartCap = Boolean(o.autoRemoveByStarts) && Number(o.maxStartedUsers || 0) > 0;
         const avatarHtml = o.logo
           ? `<img src="${o.logo}" alt="${escapeHtml(o.name)}" class="w-12 h-12 rounded-2xl object-cover shrink-0 border border-slate-200 bg-white" />`
           : `<div class="w-12 h-12 rounded-2xl ${isKyc ? 'bg-emerald-500 text-white' : 'bg-indigo-500 text-white'} font-extrabold text-base flex items-center justify-center shrink-0">
@@ -1304,6 +1430,7 @@
                     ${o.primeBadge ? `<span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-amber-50 text-amber-700 border border-amber-200/80">Prime</span>` : ''}
                     ${o.collectMobile ? `<span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-sky-50 text-sky-700 border border-sky-200/80">Mobile</span>` : ''}
                     ${o.allowProofSubmission ? `<span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-violet-50 text-violet-700 border border-violet-200/80">Proof Optional</span>` : ''}
+                    ${hasStartCap ? `<span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-amber-50 text-amber-800 border border-amber-200/80">Cap ${startedCount}/${o.maxStartedUsers}</span>` : ''}
                   </div>
                   <h4 class="text-base font-extrabold text-slate-900 mt-0.5 truncate">${escapeHtml(o.name)}</h4>
                   <p class="text-xs text-slate-500 truncate">${escapeHtml(o.subtitle)}</p>
@@ -1317,7 +1444,7 @@
             <div class="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
               <button onclick="toggleOffer('${o.id}')" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold ${o.active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'} cursor-pointer">
                 <span class="w-2 h-2 rounded-full ${o.active ? 'bg-emerald-500' : 'bg-slate-400'}"></span>
-                <span>${o.active ? 'Live in App' : 'Paused'}</span>
+                <span>${o.active ? 'Live in App' : (o.autoRemovedByStarts ? 'Auto-Removed' : 'Paused')}</span>
               </button>
               <div class="flex items-center gap-1.5">
                 <button onclick="openOfferModal('${o.id}')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer">
@@ -1336,9 +1463,13 @@
     async function toggleOffer(id) {
       const o = state.offers.find((x) => x.id === id);
       if (!o) return;
+      const nextActive = !o.active;
       try {
-        await db.collection('offers').doc(id).update({ active: !o.active });
-        toast(`${o.name} is now ${!o.active ? 'Live' : 'Paused'}`, 'info');
+        await db.collection('offers').doc(id).update({
+          active: nextActive,
+          autoRemovedByStarts: nextActive ? false : o.autoRemovedByStarts
+        });
+        toast(`${o.name} is now ${nextActive ? 'Live' : 'Paused'}`, 'info');
       } catch (err) {
         toast(`Failed to toggle offer: ${err.message}`, 'error');
       }
@@ -1431,6 +1562,8 @@
         document.getElementById('om-url').value = o.url;
         document.getElementById('om-steps').value = (o.steps || []).join('\n');
         document.getElementById('om-prime-badge').checked = Boolean(o.primeBadge);
+        document.getElementById('om-auto-remove-starts').checked = Boolean(o.autoRemoveByStarts);
+        document.getElementById('om-max-started-users').value = o.maxStartedUsers || '';
         document.getElementById('om-collect-mobile').checked = Boolean(o.collectMobile);
         document.getElementById('om-allow-proof').checked = Boolean(o.allowProofSubmission ?? o.requireProof);
         updateOfferLogoPreview(o.logo || '');
@@ -1443,10 +1576,13 @@
         document.getElementById('om-url').value = '';
         document.getElementById('om-steps').value = '';
         document.getElementById('om-prime-badge').checked = false;
+        document.getElementById('om-auto-remove-starts').checked = false;
+        document.getElementById('om-max-started-users').value = '';
         document.getElementById('om-collect-mobile').checked = false;
         document.getElementById('om-allow-proof').checked = false;
         updateOfferLogoPreview('');
       }
+      toggleMaxStartsInput();
       openModal('offer-modal');
     }
 
@@ -1454,6 +1590,15 @@
       e.preventDefault();
       const id = document.getElementById('om-id').value;
       const btn = document.getElementById('om-save-btn');
+      const autoRemoveByStarts = document.getElementById('om-auto-remove-starts').checked;
+      const rawMaxStarts = Number(document.getElementById('om-max-started-users').value || 0);
+      const maxStartedUsers = autoRemoveByStarts && rawMaxStarts > 0 ? rawMaxStarts : null;
+
+      if (autoRemoveByStarts && !maxStartedUsers) {
+        toast('Please enter a valid number of started users (1 or more).', 'error');
+        return;
+      }
+
       btn.disabled = true;
       btn.textContent = 'Saving...';
 
@@ -1465,6 +1610,8 @@
         url: document.getElementById('om-url').value.trim(),
         logo: document.getElementById('om-logo-data').value || '',
         primeBadge: document.getElementById('om-prime-badge').checked,
+        autoRemoveByStarts,
+        maxStartedUsers,
         collectMobile: document.getElementById('om-collect-mobile').checked,
         allowProofSubmission: document.getElementById('om-allow-proof').checked,
         steps: document.getElementById('om-steps').value.split('\n').map((x) => x.trim()).filter(Boolean)
@@ -1472,11 +1619,20 @@
 
       try {
         if (id) {
+          const currentStarted = getOfferStartedCount(id);
+          if (autoRemoveByStarts && maxStartedUsers && currentStarted >= maxStartedUsers) {
+            payload.active = false;
+            payload.autoRemovedByStarts = true;
+          } else if (!autoRemoveByStarts) {
+            payload.autoRemovedByStarts = false;
+          }
           await db.collection('offers').doc(id).update(payload);
           toast(`Updated ${payload.name || 'offer'}`, 'success');
         } else {
           await db.collection('offers').add({
             active: true,
+            startedCount: 0,
+            autoRemovedByStarts: false,
             createdAt: FieldValue.serverTimestamp(),
             ...payload
           });
@@ -1501,6 +1657,8 @@
           reward: 200,
           url: 'https://angel-one.onelink.me/techyreward',
           active: true,
+          autoRemoveByStarts: false,
+          maxStartedUsers: null,
           steps: ['Open link and complete Aadhaar KYC verification.', 'Account must be activated successfully.', 'Submit Client ID / Mobile Number in My Offers.']
         },
         {
@@ -1510,6 +1668,8 @@
           reward: 200,
           url: 'https://upstox.com/open-demat/?ref=techy',
           active: true,
+          autoRemoveByStarts: false,
+          maxStartedUsers: null,
           steps: ['Complete signup process via PAN & Aadhaar.', 'Submit registered mobile number in My Offers tab.']
         },
         {
@@ -1519,6 +1679,8 @@
           reward: 10,
           url: 'https://example.com/offer1',
           active: true,
+          autoRemoveByStarts: false,
+          maxStartedUsers: null,
           steps: ['Register with your active mobile number.', 'Complete your profile survey completely.', 'Submit registered mobile number & proof screenshot in My Offers.']
         }
       ];
