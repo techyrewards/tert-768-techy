@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Techy Reward - Admin Control Center</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -218,6 +218,11 @@
           <span>Task Submissions</span>
           <span id="dbadge-tasks" class="px-1.5 py-0.5 rounded-full text-[10px]">0</span>
         </button>
+        <button onclick="switchTab('started')" id="dtab-started" class="dtab-btn flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer shrink-0">
+          <i data-lucide="play-circle" class="w-4 h-4"></i>
+          <span>Started Tasks</span>
+          <span id="dbadge-started" class="px-1.5 py-0.5 rounded-full text-[10px]">0</span>
+        </button>
         <button onclick="switchTab('withdrawals')" id="dtab-withdrawals" class="dtab-btn flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer shrink-0">
           <i data-lucide="wallet" class="w-4 h-4"></i>
           <span>Withdrawals</span>
@@ -266,6 +271,22 @@
         </span>
       </div>
       <div id="tasks-container" class="space-y-3"></div>
+    </section>
+
+    <!-- ==================== SECTION 1B: STARTED / ONGOING TASKS ==================== -->
+    <section id="view-started" class="hidden space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="inline-flex p-1 bg-white rounded-2xl border border-slate-200/80 shadow-2xs">
+          <button onclick="setStartedFilter('All')" id="sfilter-All" class="sfilter-btn px-4 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer">All</button>
+          <button onclick="setStartedFilter('started')" id="sfilter-started" class="sfilter-btn px-4 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer">Ongoing</button>
+          <button onclick="setStartedFilter('completed')" id="sfilter-completed" class="sfilter-btn px-4 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer">Completed</button>
+          <button onclick="setStartedFilter('rejected')" id="sfilter-rejected" class="sfilter-btn px-4 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer">Rejected</button>
+        </div>
+        <span class="text-xs text-slate-500 bg-white px-3.5 py-2 rounded-xl border border-slate-200/80">
+          User-started tasks tracked in <strong class="text-slate-900">userTasks</strong>
+        </span>
+      </div>
+      <div id="started-container" class="space-y-3"></div>
     </section>
 
     <!-- ==================== SECTION 2: WITHDRAWAL REQUESTS ==================== -->
@@ -347,15 +368,9 @@
             <label class="block text-xs font-bold text-slate-700 mb-1.5">Customer Support Telegram Handle / Link</label>
             <input type="text" id="set-tg-support" class="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500" />
           </div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-xs font-bold text-slate-700 mb-1.5">Admin Login Email</label>
-              <input type="email" id="set-admin-email" class="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500" />
-            </div>
-            <div>
-              <label class="block text-xs font-bold text-slate-700 mb-1.5">Admin Login Password</label>
-              <input type="text" id="set-admin-pass" class="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500" />
-            </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1.5">Admin Login Email</label>
+            <input type="email" id="set-admin-email" class="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500" />
           </div>
           <div class="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
             <button type="submit" class="w-full sm:w-auto ml-auto px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm transition cursor-pointer">
@@ -604,34 +619,6 @@
     </div>
   </div>
 
-  <!-- 5. Adjust User Wallet Modal -->
-  <div id="wallet-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4">
-    <div class="bg-white rounded-3xl max-w-sm w-full overflow-hidden shadow-2xl border border-slate-100 animate-modal">
-      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-        <h3 class="text-sm font-extrabold text-slate-900">Adjust User Wallet</h3>
-        <button onclick="closeModal('wallet-modal')" class="p-1.5 rounded-full bg-slate-100 text-slate-500 cursor-pointer">
-          <i data-lucide="x" class="w-4 h-4"></i>
-        </button>
-      </div>
-      <form onsubmit="applyWalletAdjust(event)" class="p-5 space-y-3.5">
-        <input type="hidden" id="wm-user-id" />
-        <p class="text-xs text-slate-500">User: <strong class="text-slate-900" id="wm-user-name">-</strong> (Current: <strong class="text-emerald-600" id="wm-user-bal">₹0</strong>)</p>
-        <div class="grid grid-cols-2 gap-2">
-          <select id="wm-type" class="px-3 py-2.5 text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl">
-            <option value="add">+ Add Bonus (₹)</option>
-            <option value="deduct">- Deduct (₹)</option>
-          </select>
-          <input type="number" id="wm-amount" step="0.01" placeholder="Amount" class="px-3.5 py-2.5 text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl" />
-        </div>
-        <input type="text" id="wm-note" placeholder="Reason (e.g., Referral bonus fix)" class="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl" />
-        <div class="pt-2 flex justify-end gap-2">
-          <button type="button" onclick="closeModal('wallet-modal')" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 cursor-pointer">Cancel</button>
-          <button type="submit" class="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 text-white cursor-pointer">Update Wallet</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
   <!-- Toast Container -->
   <div id="toast-box" class="fixed top-20 right-4 z-50 flex flex-col gap-2 max-w-xs w-full pointer-events-none"></div>
 
@@ -660,10 +647,8 @@
         referralPercent: 50,
         telegramChannel: 'https://t.me/techyrewards',
         supportLink: 'https://t.me/techyrewardsbot',
-        adminEmail: 'sec-adminduniya77@gmail.com',
-        adminPass: 'arkam10hostinger.com'
+        adminEmail: 'sec-adminduniya77@gmail.com'
       },
-      users: [],
       submissions: [],
       withdrawals: [],
       offers: [],
@@ -673,12 +658,14 @@
 
     let currentTab = 'tasks';
     let taskFilter = 'Pending';
+    let startedFilter = 'All';
     let wdFilter = 'Pending';
     let offerFilter = 'All';
     let ticketFilter = 'Open';
     let searchTerm = '';
     let rejectCtx = null;
     let payCtxId = null;
+    const autoRemoveInFlight = new Set();
 
     function showRejectionAlert(message) {
       const banner = document.getElementById('rejection-alert-banner');
@@ -748,11 +735,13 @@
       for (const offer of state.offers) {
         const limit = Number(offer.maxStartedUsers || 0);
         if (!offer.autoRemoveByStarts || limit <= 0) continue;
+        if (autoRemoveInFlight.has(offer.id)) continue;
 
         const startedCount = getOfferStartedCount(offer.id);
         const shouldAutoRemove = startedCount >= limit;
 
         if (shouldAutoRemove && (offer.active !== false || offer.autoRemovedByStarts !== true)) {
+          autoRemoveInFlight.add(offer.id);
           offer.active = false;
           offer.autoRemovedByStarts = true;
           try {
@@ -764,6 +753,8 @@
             toast(`Auto-removed "${offer.name}" (${startedCount}/${limit} users started)`, 'info');
           } catch (err) {
             console.error('Auto-remove by started users error:', err);
+          } finally {
+            autoRemoveInFlight.delete(offer.id);
           }
         }
       }
@@ -774,29 +765,11 @@
       db.collection('settings').doc('app').onSnapshot((docSnap) => {
         setDbStatus(true);
         if (docSnap.exists) {
-          state.settings = { ...state.settings, ...docSnap.data() };
+          const { adminPass, ...safeSettings } = docSnap.data() || {};
+          state.settings = { ...state.settings, ...safeSettings };
           populateSettingsForm();
           render();
         }
-      }, (err) => setDbStatus(false, err.code));
-
-      db.collection('users').onSnapshot((snap) => {
-        setDbStatus(true);
-        state.users = snap.docs
-          .filter((d) => !String(d.id).startsWith('guest_'))
-          .map((d) => ({
-            id: d.id,
-            name: 'User',
-            handle: '',
-            mobile: '',
-            balance: 0,
-            earned: 0,
-            withdrawn: 0,
-            referrer: null,
-            referralsCount: 0,
-            ...d.data()
-          }));
-        render();
       }, (err) => setDbStatus(false, err.code));
 
       db.collection('offers').onSnapshot((snap) => {
@@ -880,6 +853,13 @@
       }
 
       try {
+        try {
+          await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+        } catch (_) {
+          try {
+            await auth.setPersistence(firebase.auth.Auth.Persistence.NONE);
+          } catch (_) {}
+        }
         await auth.signInWithEmailAndPassword(emailVal, passVal);
         document.getElementById('lock-screen').classList.add('hidden');
         errEl.classList.add('hidden');
@@ -911,7 +891,7 @@
     // ==================== NAVIGATION & RENDER ====================
     function switchTab(tab) {
       currentTab = tab;
-      ['tasks', 'withdrawals', 'offers', 'tickets', 'settings'].forEach((t) => {
+      ['tasks', 'started', 'withdrawals', 'offers', 'tickets', 'settings'].forEach((t) => {
         const view = document.getElementById(`view-${t}`);
         if (view) view.classList.toggle('hidden', t !== tab);
       });
@@ -927,6 +907,7 @@
       updateStats();
       updateNavStyles();
       renderTasks();
+      renderStartedTasks();
       renderWithdrawals();
       renderOffers();
       renderTickets();
@@ -953,6 +934,8 @@
       document.getElementById('stat-paid-count').textContent = `${paidWds.length} transfers`;
 
       document.getElementById('dbadge-tasks').textContent = pTasks.length;
+      const dbadgeStarted = document.getElementById('dbadge-started');
+      if (dbadgeStarted) dbadgeStarted.textContent = state.userTasks.length;
       document.getElementById('dbadge-withdrawals').textContent = pWds.length;
       document.getElementById('dbadge-offers').textContent = activeOff.length;
       document.getElementById('dbadge-tickets').textContent = openTickets.length;
@@ -968,7 +951,7 @@
     }
 
     function updateNavStyles() {
-      ['tasks', 'withdrawals', 'offers', 'tickets', 'settings'].forEach((t) => {
+      ['tasks', 'started', 'withdrawals', 'offers', 'tickets', 'settings'].forEach((t) => {
         const dBtn = document.getElementById(`dtab-${t}`);
         const mBtn = document.getElementById(`mtab-${t}`);
         if (t === currentTab) {
@@ -985,6 +968,13 @@
         if (el) el.className = f === taskFilter
           ? 'tfilter-btn px-4 py-1.5 rounded-xl text-xs font-bold bg-emerald-500 text-white shadow-2xs transition cursor-pointer'
           : 'tfilter-btn px-4 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 transition cursor-pointer';
+      });
+
+      ['All', 'started', 'completed', 'rejected'].forEach((f) => {
+        const el = document.getElementById(`sfilter-${f}`);
+        if (el) el.className = f === startedFilter
+          ? 'sfilter-btn px-4 py-1.5 rounded-xl text-xs font-bold bg-emerald-500 text-white shadow-2xs transition cursor-pointer'
+          : 'sfilter-btn px-4 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 transition cursor-pointer';
       });
 
       ['Pending', 'Paid', 'Rejected', 'All'].forEach((f) => {
@@ -1059,18 +1049,18 @@
 
             <div class="flex flex-wrap items-center justify-between sm:justify-end gap-2.5 pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100">
               <span class="px-3 py-1.5 rounded-full bg-emerald-500 text-white font-extrabold text-xs">
-                +₹${s.reward || 0}
+                +₹${Number(s.reward || 0)}
               </span>
-              <button onclick="openProofModal('${s.id}')" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 transition cursor-pointer">
+              <button onclick="openProofModal('${escapeHtml(s.id)}')" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 transition cursor-pointer">
                 <i data-lucide="eye" class="w-3.5 h-3.5"></i>
                 <span>Proof</span>
               </button>
               ${s.status === 'Pending' ? `
-                <button onclick="approveTask('${s.id}')" class="inline-flex items-center gap-1 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition cursor-pointer">
+                <button onclick="approveTask('${escapeHtml(s.id)}')" class="inline-flex items-center gap-1 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition cursor-pointer">
                   <i data-lucide="check" class="w-3.5 h-3.5"></i>
                   <span>Approve</span>
                 </button>
-                <button onclick="openReject('task', '${s.id}')" class="inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-600 transition cursor-pointer">
+                <button onclick="openReject('task', '${escapeHtml(s.id)}')" class="inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-600 transition cursor-pointer">
                   <i data-lucide="x" class="w-3.5 h-3.5"></i>
                 </button>
               ` : ''}
@@ -1080,6 +1070,100 @@
       }).join('');
     }
 
+    // ==================== STARTED / ONGOING TASKS LOGIC ====================
+    function setStartedFilter(f) {
+      startedFilter = f;
+      render();
+    }
+
+    function renderStartedTasks() {
+      const box = document.getElementById('started-container');
+      if (!box) return;
+
+      const list = state.userTasks.filter((ut) => {
+        const st = String(ut.status || 'started').toLowerCase();
+        const okFilter = startedFilter === 'All' || st === startedFilter.toLowerCase();
+        const offer = state.offers.find((o) => String(o.id) === String(ut.offerId));
+        const offerName = String(ut.offerName || offer?.name || '').toLowerCase();
+        const okSearch = !searchTerm ||
+          String(ut.userId || '').toLowerCase().includes(searchTerm) ||
+          String(ut.userName || '').toLowerCase().includes(searchTerm) ||
+          String(ut.offerId || '').toLowerCase().includes(searchTerm) ||
+          offerName.includes(searchTerm) ||
+          st.includes(searchTerm);
+        return okFilter && okSearch;
+      });
+
+      if (!list.length) {
+        box.innerHTML = emptyCard('No started or ongoing user tasks in this filter');
+        return;
+      }
+
+      box.innerHTML = list.map((ut) => {
+        const offer = state.offers.find((o) => String(o.id) === String(ut.offerId));
+        const title = ut.offerName || offer?.name || ut.offerId || 'Task';
+        const status = ut.status || 'started';
+        const isDone = String(status).toLowerCase() === 'completed';
+        const isRej = String(status).toLowerCase() === 'rejected';
+        const pillClass = isDone
+          ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80'
+          : isRej
+            ? 'bg-rose-50 text-rose-700 border-rose-200/80'
+            : 'bg-sky-50 text-sky-700 border-sky-200/80';
+
+        return `
+          <div class="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="space-y-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <h4 class="text-sm font-extrabold text-slate-900">${escapeHtml(title)}</h4>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border ${pillClass}">${escapeHtml(status)}</span>
+              </div>
+              <p class="text-xs text-slate-600">
+                User: <strong class="text-slate-900">${escapeHtml(ut.userName || ut.userId || 'Unknown User')}</strong>
+                ${ut.userId ? `<span class="text-slate-400 font-mono text-[11px]">(${escapeHtml(ut.userId)})</span>` : ''}
+              </p>
+              ${ut.rejectReason ? `<p class="text-[11px] text-rose-600 font-semibold">Reason: ${escapeHtml(ut.rejectReason)}</p>` : ''}
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+              <button onclick="updateStartedTaskStatus('${escapeHtml(ut.id)}', 'completed')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition cursor-pointer">
+                Mark Completed
+              </button>
+              <button onclick="updateStartedTaskStatus('${escapeHtml(ut.id)}', 'rejected')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-600 transition cursor-pointer">
+                Reject
+              </button>
+              <button onclick="deleteStartedTaskRecord('${escapeHtml(ut.id)}')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer">
+                Remove
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function updateStartedTaskStatus(docId, nextStatus) {
+      try {
+        await db.collection('userTasks').doc(docId).update({ status: nextStatus });
+        if (nextStatus === 'rejected') {
+          showRejectionAlert(`Alert: Started task record (${docId}) marked as Rejected.`);
+        } else {
+          toast(`Started task updated to ${nextStatus}`, 'success');
+        }
+      } catch (err) {
+        toast(`Failed to update started task: ${err.message}`, 'error');
+      }
+    }
+
+    async function deleteStartedTaskRecord(docId) {
+      try {
+        await db.collection('userTasks').doc(docId).delete();
+        toast('Removed started task record', 'info');
+      } catch (err) {
+        toast(`Failed to remove record: ${err.message}`, 'error');
+      }
+    }
+
+    // ==================== WITHDRAWALS LOGIC ====================
     async function approveTask(id) {
       const sub = state.submissions.find((s) => s.id === id);
       if (!sub || sub.status !== 'Pending') return;
@@ -1159,12 +1243,12 @@
       document.getElementById('pm-title').textContent = `${s.taskName} Proof`;
       document.getElementById('pm-sub').textContent = `Submitted by ${s.userName} • ${s.id}`;
       document.getElementById('pm-mobile').textContent = s.mobile || '-';
-      document.getElementById('pm-reward').textContent = `₹${s.reward || 0}`;
+      document.getElementById('pm-reward').textContent = `₹${Number(s.reward || 0)}`;
       document.getElementById('pm-date').textContent = s.date || '-';
       document.getElementById('pm-referrer').textContent = s.referrer || 'Direct User';
 
       const imgHtml = s.screenshotData
-        ? `<img src="${s.screenshotData}" alt="Proof Screenshot" class="w-full max-h-72 object-contain rounded-xl border border-slate-700 bg-black mx-auto" />`
+        ? `<img src="${escapeHtml(s.screenshotData)}" alt="Proof Screenshot" class="w-full max-h-72 object-contain rounded-xl border border-slate-700 bg-black mx-auto" />`
         : `<div class="py-3 text-center space-y-2">
             <div class="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto">
               <i data-lucide="badge-check" class="w-6 h-6"></i>
@@ -1187,8 +1271,8 @@
       const footer = document.getElementById('pm-footer');
       if (s.status === 'Pending') {
         footer.innerHTML = `
-          <button onclick="closeModal('proof-modal'); openReject('task', '${s.id}')" class="px-4 py-2 rounded-xl text-xs font-bold bg-rose-50 text-rose-600 hover:bg-rose-100 cursor-pointer">Reject</button>
-          <button onclick="approveTask('${s.id}')" class="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 text-white hover:bg-emerald-600 cursor-pointer">Approve &amp; Credit ₹${s.reward}</button>
+          <button onclick="closeModal('proof-modal'); openReject('task', '${escapeHtml(s.id)}')" class="px-4 py-2 rounded-xl text-xs font-bold bg-rose-50 text-rose-600 hover:bg-rose-100 cursor-pointer">Reject</button>
+          <button onclick="approveTask('${escapeHtml(s.id)}')" class="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 text-white hover:bg-emerald-600 cursor-pointer">Approve &amp; Credit ₹${Number(s.reward || 0)}</button>
         `;
       } else {
         footer.innerHTML = `<button onclick="closeModal('proof-modal')" class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 text-white cursor-pointer">Close</button>`;
@@ -1198,7 +1282,6 @@
       if (window.lucide) lucide.createIcons();
     }
 
-    // ==================== WITHDRAWALS LOGIC ====================
     function setWdFilter(f) {
       wdFilter = f;
       render();
@@ -1244,14 +1327,14 @@
           <div class="flex items-center justify-between sm:justify-end gap-3 pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100">
             <div class="sm:text-right">
               <span class="text-[10px] uppercase tracking-wider text-slate-400 block">Amount</span>
-              <strong class="text-lg font-extrabold text-slate-900">₹${w.amount || 0}</strong>
+              <strong class="text-lg font-extrabold text-slate-900">₹${Number(w.amount || 0)}</strong>
             </div>
             ${w.status === 'Pending' ? `
               <div class="flex items-center gap-2">
-                <button onclick="openPayModal('${w.id}')" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition cursor-pointer">
+                <button onclick="openPayModal('${escapeHtml(w.id)}')" class="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition cursor-pointer">
                   Mark Paid
                 </button>
-                <button onclick="openReject('wd', '${w.id}')" class="px-3 py-2 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-600 transition cursor-pointer">
+                <button onclick="openReject('wd', '${escapeHtml(w.id)}')" class="px-3 py-2 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-600 transition cursor-pointer">
                   Reject
                 </button>
               </div>
@@ -1267,7 +1350,7 @@
       payCtxId = id;
       document.getElementById('pay-user').textContent = w.userName || 'User';
       document.getElementById('pay-dest').textContent = `${w.method} (${w.destination})`;
-      document.getElementById('pay-amt').textContent = `₹${w.amount}`;
+      document.getElementById('pay-amt').textContent = `₹${Number(w.amount || 0)}`;
       document.getElementById('pay-utr').value = '';
       openModal('pay-modal');
     }
@@ -1300,21 +1383,34 @@
     // ==================== REJECT MODAL (SHARED) ====================
     function openReject(type, id) {
       rejectCtx = { type, id };
-      document.getElementById('rm-input').value = '';
+      const inputEl = document.getElementById('rm-input');
+      inputEl.value = '';
       const presetsEl = document.getElementById('rm-presets');
+      presetsEl.innerHTML = '';
+
+      const reasons = type === 'task'
+        ? ['Blurry screenshot', 'Existing account', 'KYC incomplete', 'Wrong mobile number']
+        : ['Invalid UPI ID', 'Duplicate account detected', 'Offer reversed by partner'];
+
       if (type === 'task') {
         document.getElementById('rm-title').textContent = 'Reject Task Proof';
         document.getElementById('rm-desc').textContent = 'Select why this proof failed verification:';
-        presetsEl.innerHTML = ['Blurry screenshot', 'Existing account', 'KYC incomplete', 'Wrong mobile number']
-          .map((r) => `<button type="button" onclick="document.getElementById('rm-input').value='${r}'" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 hover:bg-rose-50 hover:text-rose-600 cursor-pointer">${r}</button>`)
-          .join('');
       } else {
         document.getElementById('rm-title').textContent = 'Reject & Refund Payout';
         document.getElementById('rm-desc').textContent = 'Amount will be refunded to user wallet:';
-        presetsEl.innerHTML = ['Invalid UPI ID', 'Duplicate account detected', 'Offer reversed by partner']
-          .map((r) => `<button type="button" onclick="document.getElementById('rm-input').value='${r}'" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 hover:bg-rose-50 hover:text-rose-600 cursor-pointer">${r}</button>`)
-          .join('');
       }
+
+      reasons.forEach((reason) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 hover:bg-rose-50 hover:text-rose-600 cursor-pointer';
+        btn.textContent = reason;
+        btn.addEventListener('click', () => {
+          inputEl.value = reason;
+        });
+        presetsEl.appendChild(btn);
+      });
+
       openModal('reject-modal');
     }
 
@@ -1413,7 +1509,7 @@
         const startedCount = getOfferStartedCount(o.id);
         const hasStartCap = Boolean(o.autoRemoveByStarts) && Number(o.maxStartedUsers || 0) > 0;
         const avatarHtml = o.logo
-          ? `<img src="${o.logo}" alt="${escapeHtml(o.name)}" class="w-12 h-12 rounded-2xl object-cover shrink-0 border border-slate-200 bg-white" />`
+          ? `<img src="${escapeHtml(o.logo)}" alt="${escapeHtml(o.name)}" class="w-12 h-12 rounded-2xl object-cover shrink-0 border border-slate-200 bg-white" />`
           : `<div class="w-12 h-12 rounded-2xl ${isKyc ? 'bg-emerald-500 text-white' : 'bg-indigo-500 text-white'} font-extrabold text-base flex items-center justify-center shrink-0">
               ${escapeHtml(String(o.name || 'OF').slice(0, 2).toUpperCase())}
             </div>`;
@@ -1437,20 +1533,20 @@
                 </div>
               </div>
               <span class="px-3.5 py-1.5 rounded-full bg-emerald-500 text-white font-extrabold text-xs shrink-0">
-                +₹${o.reward}
+                +₹${Number(o.reward || 0)}
               </span>
             </div>
 
             <div class="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-              <button onclick="toggleOffer('${o.id}')" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold ${o.active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'} cursor-pointer">
+              <button onclick="toggleOffer('${escapeHtml(o.id)}')" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold ${o.active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'} cursor-pointer">
                 <span class="w-2 h-2 rounded-full ${o.active ? 'bg-emerald-500' : 'bg-slate-400'}"></span>
                 <span>${o.active ? 'Live in App' : (o.autoRemovedByStarts ? 'Auto-Removed' : 'Paused')}</span>
               </button>
               <div class="flex items-center gap-1.5">
-                <button onclick="openOfferModal('${o.id}')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer">
+                <button onclick="openOfferModal('${escapeHtml(o.id)}')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer">
                   Edit
                 </button>
-                <button onclick="deleteOffer('${o.id}')" class="p-1.5 rounded-xl text-rose-500 hover:bg-rose-50 cursor-pointer">
+                <button onclick="deleteOffer('${escapeHtml(o.id)}')" class="p-1.5 rounded-xl text-rose-500 hover:bg-rose-50 cursor-pointer">
                   <i data-lucide="trash-2" class="w-4 h-4"></i>
                 </button>
               </div>
@@ -1493,7 +1589,7 @@
 
       if (logoDataUrl) {
         preview.className = 'w-12 h-12 rounded-2xl bg-white flex items-center justify-center shrink-0 overflow-hidden border border-emerald-300 shadow-2xs';
-        preview.innerHTML = `<img src="${logoDataUrl}" alt="Offer Logo" class="w-full h-full object-cover" />`;
+        preview.innerHTML = `<img src="${escapeHtml(logoDataUrl)}" alt="Offer Logo" class="w-full h-full object-cover" />`;
         clearBtn.classList.remove('hidden');
         statusEl.textContent = 'Logo ready to save';
       } else {
@@ -1695,107 +1791,6 @@
       }
     }
 
-    // ==================== USERS & WALLETS LOGIC ====================
-    function renderUsers() {
-      const box = document.getElementById('users-container');
-      const list = state.users.filter((u) =>
-        !searchTerm ||
-        String(u.name || '').toLowerCase().includes(searchTerm) ||
-        String(u.mobile || '').includes(searchTerm) ||
-        String(u.id || '').includes(searchTerm)
-      );
-
-      if (!list.length) {
-        box.innerHTML = `<div class="col-span-full">${emptyCard('No users have opened the Telegram Mini App yet.')}</div>`;
-        return;
-      }
-
-      box.innerHTML = list.map((u) => `
-        <div class="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs space-y-3">
-          <div class="flex items-center justify-between gap-3">
-            <div class="flex items-center gap-3 min-w-0">
-              <div class="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-700 font-extrabold text-sm flex items-center justify-center shrink-0">
-                ${escapeHtml(String(u.name || 'U').slice(0, 2).toUpperCase())}
-              </div>
-              <div class="min-w-0">
-                <h4 class="text-sm font-extrabold text-slate-900 truncate">${escapeHtml(u.name || 'User')}</h4>
-                <p class="text-[11px] text-slate-500 truncate">ID: ${escapeHtml(u.id)} ${u.mobile ? `• ${escapeHtml(u.mobile)}` : ''} • ${u.referralsCount || 0} Referrals</p>
-              </div>
-            </div>
-            <button onclick="openWalletModal('${u.id}')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 transition cursor-pointer shrink-0">
-              Edit Balance
-            </button>
-          </div>
-
-          <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 text-center">
-            <div class="bg-slate-50 rounded-xl p-2">
-              <span class="text-[10px] text-slate-400 block">Available</span>
-              <strong class="text-xs sm:text-sm font-extrabold text-emerald-600">₹${Number(u.balance || 0).toFixed(2)}</strong>
-            </div>
-            <div class="bg-slate-50 rounded-xl p-2">
-              <span class="text-[10px] text-slate-400 block">Total Earned</span>
-              <strong class="text-xs sm:text-sm font-extrabold text-slate-800">₹${Number(u.earned || 0).toFixed(2)}</strong>
-            </div>
-            <div class="bg-slate-50 rounded-xl p-2">
-              <span class="text-[10px] text-slate-400 block">Withdrawn</span>
-              <strong class="text-xs sm:text-sm font-extrabold text-indigo-600">₹${Number(u.withdrawn || 0).toFixed(2)}</strong>
-            </div>
-          </div>
-        </div>
-      `).join('');
-    }
-
-    function openWalletModal(userId) {
-      const u = state.users.find((x) => x.id === userId);
-      if (!u) return;
-      document.getElementById('wm-user-id').value = u.id;
-      document.getElementById('wm-user-name').textContent = u.name || u.id;
-      document.getElementById('wm-user-bal').textContent = `₹${Number(u.balance || 0).toFixed(2)}`;
-      document.getElementById('wm-amount').value = '';
-      document.getElementById('wm-note').value = '';
-      openModal('wallet-modal');
-    }
-
-    async function applyWalletAdjust(e) {
-      e.preventDefault();
-      const uid = document.getElementById('wm-user-id').value;
-      const type = document.getElementById('wm-type').value;
-      const amt = Number(document.getElementById('wm-amount').value || 0);
-      const note = document.getElementById('wm-note').value.trim();
-      const u = state.users.find((x) => x.id === uid);
-      if (!u || amt <= 0) return;
-
-      try {
-        if (type === 'add') {
-          await db.collection('users').doc(uid).set({
-            balance: FieldValue.increment(amt),
-            earned: FieldValue.increment(amt)
-          }, { merge: true });
-
-          await db.collection('transactions').add({
-            userId: uid,
-            category: 'earnings',
-            type: 'bonus',
-            badge: 'Bonus',
-            amount: amt,
-            title: `₹${amt.toFixed(2)} Admin Bonus`,
-            subtitle: note || 'Bonus credited by Admin',
-            status: 'Approved',
-            date: formatNowDate(),
-            createdAt: FieldValue.serverTimestamp()
-          });
-          toast(`Added ₹${amt} to ${u.name}'s wallet`, 'success');
-        } else {
-          const newBal = Math.max(0, Number(u.balance || 0) - amt);
-          await db.collection('users').doc(uid).update({ balance: newBal });
-          toast(`Deducted ₹${amt} from ${u.name}'s wallet`, 'info');
-        }
-        closeModal('wallet-modal');
-      } catch (err) {
-        toast(`Wallet update failed: ${err.message}`, 'error');
-      }
-    }
-
     // ==================== SUPPORT TICKETS LOGIC ====================
     function setTicketFilter(f) {
       ticketFilter = f;
@@ -1835,13 +1830,13 @@
 
           <div class="flex items-center justify-end gap-2 pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100 shrink-0">
             ${tk.screenshotData ? `
-              <button onclick="openTicketProof('${tk.id}')" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 cursor-pointer">
+              <button onclick="openTicketProof('${escapeHtml(tk.id)}')" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 cursor-pointer">
                 <i data-lucide="image" class="w-3.5 h-3.5"></i>
                 <span>Screenshot</span>
               </button>
             ` : ''}
             ${tk.status !== 'Resolved' ? `
-              <button onclick="resolveTicket('${tk.id}')" class="inline-flex items-center gap-1 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-white cursor-pointer">
+              <button onclick="resolveTicket('${escapeHtml(tk.id)}')" class="inline-flex items-center gap-1 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-white cursor-pointer">
                 <i data-lucide="check" class="w-3.5 h-3.5"></i>
                 <span>Mark Resolved</span>
               </button>
@@ -1858,7 +1853,7 @@
       document.getElementById('pm-sub').textContent = `Submitted by ${tk.userName || tk.userId} • ${tk.date || ''}`;
       document.getElementById('pm-meta-grid').classList.add('hidden');
       document.getElementById('pm-screenshot').innerHTML = `
-        <img src="${tk.screenshotData}" alt="Ticket Screenshot" class="w-full max-h-80 object-contain rounded-xl border border-slate-700 bg-black mx-auto" />
+        <img src="${escapeHtml(tk.screenshotData)}" alt="Ticket Screenshot" class="w-full max-h-80 object-contain rounded-xl border border-slate-700 bg-black mx-auto" />
         <p class="text-xs text-slate-300 pt-1">${escapeHtml(tk.description || '')}</p>
       `;
       document.getElementById('pm-footer').innerHTML = `
@@ -1883,7 +1878,6 @@
       document.getElementById('set-tg-channel').value = state.settings.telegramChannel;
       document.getElementById('set-tg-support').value = state.settings.supportLink;
       document.getElementById('set-admin-email').value = state.settings.adminEmail || 'sec-adminduniya77@gmail.com';
-      document.getElementById('set-admin-pass').value = state.settings.adminPass || 'arkam10hostinger.com';
     }
 
     async function saveAppSettings(e) {
@@ -1893,8 +1887,7 @@
         referralPercent: Number(document.getElementById('set-ref-pct').value || 50),
         telegramChannel: document.getElementById('set-tg-channel').value.trim(),
         supportLink: document.getElementById('set-tg-support').value.trim(),
-        adminEmail: document.getElementById('set-admin-email').value.trim() || 'sec-adminduniya77@gmail.com',
-        adminPass: document.getElementById('set-admin-pass').value.trim() || 'arkam10hostinger.com'
+        adminEmail: document.getElementById('set-admin-email').value.trim() || 'sec-adminduniya77@gmail.com'
       };
       try {
         await db.collection('settings').doc('app').set(updated, { merge: true });
@@ -1918,19 +1911,20 @@
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
     }
 
     function statusPill(status) {
       if (status === 'Pending') return `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200/80">Pending</span>`;
-      if (status === 'Approved' || status === 'Paid') return `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80">${status}</span>`;
+      if (status === 'Approved' || status === 'Paid') return `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80">${escapeHtml(status)}</span>`;
       return `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200/80">Rejected</span>`;
     }
 
     function emptyCard(msg) {
       return `
         <div class="bg-white rounded-3xl p-10 text-center border border-slate-200/80">
-          <p class="text-xs font-bold text-slate-400">${msg}</p>
+          <p class="text-xs font-bold text-slate-400">${escapeHtml(msg)}</p>
         </div>
       `;
     }
@@ -1951,14 +1945,23 @@
       }
     }
 
-    function copyText(str) {
+    async function copyText(str) {
+      const text = String(str ?? '');
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+          toast(`Copied: ${text}`, 'success');
+          return;
+        }
+      } catch (_) {}
+
       const inp = document.createElement('input');
-      inp.value = str;
+      inp.value = text;
       document.body.appendChild(inp);
       inp.select();
       document.execCommand('copy');
       document.body.removeChild(inp);
-      toast(`Copied: ${str}`, 'success');
+      toast(`Copied: ${text}`, 'success');
     }
 
     function toast(msg, type = 'success') {
@@ -1966,7 +1969,9 @@
       const div = document.createElement('div');
       const bg = type === 'error' ? 'bg-rose-600' : type === 'info' ? 'bg-slate-800' : 'bg-emerald-600';
       div.className = `pointer-events-auto ${bg} text-white px-4 py-3 rounded-2xl shadow-lg text-xs font-bold flex items-center justify-between gap-2 animate-modal`;
-      div.innerHTML = `<span>${msg}</span>`;
+      const span = document.createElement('span');
+      span.textContent = String(msg ?? '');
+      div.appendChild(span);
       box.appendChild(div);
       setTimeout(() => div.remove(), 3500);
     }
