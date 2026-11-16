@@ -1183,15 +1183,14 @@
             </div>
 
             <div class="flex flex-wrap items-center gap-2">
-              <button onclick="updateStartedTaskStatus('${escapeHtml(ut.id)}', 'completed')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition cursor-pointer">
-                Mark Completed
-              </button>
-              <button onclick="updateStartedTaskStatus('${escapeHtml(ut.id)}', 'rejected')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-600 transition cursor-pointer">
-                Reject
-              </button>
-              <button onclick="deleteStartedTaskRecord('${escapeHtml(ut.id)}')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer">
-                Remove
-              </button>
+              ${!isDone && !isRej ? `
+                <button onclick="updateStartedTaskStatus('${escapeHtml(ut.id)}', 'completed')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition cursor-pointer">
+                  Mark Completed
+                </button>
+                <button onclick="openReject('startedTask', '${escapeHtml(ut.id)}')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-600 transition cursor-pointer">
+                  Reject
+                </button>
+              ` : `<span class="text-[11px] font-semibold text-slate-400">Record retained in My Offers</span>`}
             </div>
           </div>
         `;
@@ -1200,7 +1199,7 @@
 
     async function updateStartedTaskStatus(docId, nextStatus) {
       try {
-        await db.collection('userTasks').doc(docId).update({ status: nextStatus });
+        await db.collection('userTasks').doc(docId).update({ status: nextStatus, updatedAt: FieldValue.serverTimestamp() });
         if (nextStatus === 'rejected') {
           showRejectionAlert(`Alert: Started task record (${docId}) marked as Rejected.`);
         } else {
@@ -1212,12 +1211,8 @@
     }
 
     async function deleteStartedTaskRecord(docId) {
-      try {
-        await db.collection('userTasks').doc(docId).delete();
-        toast('Removed started task record', 'info');
-      } catch (err) {
-        toast(`Failed to remove record: ${err.message}`, 'error');
-      }
+      // Started offer records are the user's My Offers history and must be retained.
+      toast('User offer history cannot be deleted from the Admin Panel.', 'error');
     }
 
 
@@ -1534,11 +1529,16 @@
 
       const reasons = type === 'task'
         ? ['Blurry screenshot', 'Existing account', 'KYC incomplete', 'Wrong mobile number']
-        : ['Invalid UPI ID', 'Duplicate account detected', 'Offer reversed by partner'];
+        : type === 'startedTask'
+          ? ['Requirements not met', 'Invalid or duplicate account', 'Offer no longer valid']
+          : ['Invalid UPI ID', 'Duplicate account detected', 'Offer reversed by partner'];
 
       if (type === 'task') {
         document.getElementById('rm-title').textContent = 'Reject Task Proof';
         document.getElementById('rm-desc').textContent = 'Select why this proof failed verification:';
+      } else if (type === 'startedTask') {
+        document.getElementById('rm-title').textContent = 'Reject Ongoing Offer';
+        document.getElementById('rm-desc').textContent = 'Choose a reason. The offer record will remain in the user’s Rejected tab:';
       } else {
         document.getElementById('rm-title').textContent = 'Reject & Refund Payout';
         document.getElementById('rm-desc').textContent = 'Amount will be refunded to user wallet:';
@@ -1563,7 +1563,18 @@
       const reason = document.getElementById('rm-input').value.trim() || 'Requirements not met';
 
       try {
-        if (rejectCtx.type === 'task') {
+        if (rejectCtx.type === 'startedTask') {
+          const userTask = state.userTasks.find((x) => x.id === rejectCtx.id);
+          if (userTask) {
+            await db.collection('userTasks').doc(userTask.id).update({
+              status: 'rejected',
+              rejectReason: reason,
+              updatedAt: FieldValue.serverTimestamp()
+            });
+            setStartedFilter('rejected');
+            showRejectionAlert(`Alert: ${userTask.userName || 'User'}'s "${userTask.offerName || userTask.offerId || 'Offer'}" moved to Rejected (${reason}).`);
+          }
+        } else if (rejectCtx.type === 'task') {
           const s = state.submissions.find((x) => x.id === rejectCtx.id);
           if (s) {
             await db.collection('submissions').doc(s.id).update({
@@ -1716,9 +1727,22 @@
     }
 
     async function deleteOffer(id) {
+      const offer = state.offers.find((x) => String(x.id) === String(id));
+      if (!offer) return;
+
+      const startedCount = getOfferStartedCount(id);
+      const message = startedCount > 0
+        ? `Delete "${offer.name}" from Active Offers? ${startedCount} user(s) have already started it. Their saved My Offers records will remain available and will not be deleted.`
+        : `Delete "${offer.name}" from Active Offers?`;
+
+      if (!window.confirm(message)) return;
+
       try {
+        // Remove only the public offer. Never delete userTasks or submission records here.
         await db.collection('offers').doc(id).delete();
-        toast('Offer removed from Firestore', 'info');
+        toast(startedCount > 0
+          ? `Offer removed from Active Offers. ${startedCount} started user record(s) were preserved.`
+          : 'Offer removed from Active Offers.', 'success');
       } catch (err) {
         toast(`Failed to delete offer: ${err.message}`, 'error');
       }
