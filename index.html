@@ -383,6 +383,16 @@
               <input type="number" id="set-ref-pct" class="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500" />
             </div>
           </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <label class="flex items-start gap-3 text-xs font-semibold text-slate-700">
+              <input type="checkbox" id="set-allow-mobile" class="mt-0.5 h-4 w-4 accent-emerald-600" />
+              <span>Allow mobile-number collection<br><span class="font-normal text-slate-500">Users can submit a mobile number when an offer requests it.</span></span>
+            </label>
+            <label class="flex items-start gap-3 text-xs font-semibold text-slate-700">
+              <input type="checkbox" id="set-allow-proof" class="mt-0.5 h-4 w-4 accent-emerald-600" />
+              <span>Allow proof submissions<br><span class="font-normal text-slate-500">Users can upload screenshots or proof notes when an offer requests them.</span></span>
+            </label>
+          </div>
           <div>
             <label class="block text-xs font-bold text-slate-700 mb-1.5">Telegram Channel URL</label>
             <input type="text" id="set-tg-channel" class="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500" />
@@ -680,7 +690,9 @@
         referralPercent: 50,
         telegramChannel: 'https://t.me/techyrewards',
         supportLink: 'https://t.me/techyrewardsbot',
-        adminEmail: 'sec-adminduniya77@gmail.com'
+        adminEmail: 'sec-adminduniya77@gmail.com',
+        allowMobileNumber: false,
+        allowProofSubmission: false
       },
       submissions: [],
       withdrawals: [],
@@ -1308,69 +1320,99 @@
       if (!sub || sub.status !== 'Pending') return;
 
       const rewardAmt = Number(sub.reward || 0);
+      if (!Number.isFinite(rewardAmt) || rewardAmt < 0) {
+        toast('Cannot approve: invalid task reward amount.', 'error');
+        return;
+      }
       const nowStr = formatNowDate();
+      const refPct = Math.max(0, Math.min(100, Number(state.settings.referralPercent ?? 50) || 0));
+      const comm = Math.round((rewardAmt * refPct) / 100);
+      const submissionRef = db.collection('submissions').doc(id);
+      const userRef = sub.userId ? db.collection('users').doc(sub.userId) : null;
+      const referrerRef = sub.referrerId && comm > 0 ? db.collection('users').doc(sub.referrerId) : null;
+      const userTaskRef = sub.userId && sub.taskId
+        ? db.collection('userTasks').doc(`${sub.userId}_${sub.taskId}`)
+        : null;
+      const userTxnRef = sub.userId ? db.collection('transactions').doc() : null;
+      const refTxnRef = referrerRef ? db.collection('transactions').doc() : null;
 
       try {
-        await db.collection('submissions').doc(id).update({ status: 'Approved' });
+        // All wallet changes and the Pending -> Approved transition commit together.
+        // The transaction re-reads the submission, preventing a second admin click
+        // (or another admin) from crediting the same submission twice.
+        const result = await db.runTransaction(async (transaction) => {
+          const freshSubmission = await transaction.get(submissionRef);
+          if (!freshSubmission.exists) throw new Error('Submission no longer exists.');
+          const freshData = freshSubmission.data() || {};
+          if (freshData.status !== 'Pending') return { alreadyProcessed: true };
 
-        if (sub.userId && sub.taskId) {
-          await db.collection('userTasks').doc(`${sub.userId}_${sub.taskId}`).set({
-            userId: sub.userId,
-            offerId: sub.taskId,
-            status: 'completed'
-          }, { merge: true });
-        }
+          if (userRef) await transaction.get(userRef);
+          if (referrerRef) await transaction.get(referrerRef);
 
-        if (sub.userId) {
-          await db.collection('users').doc(sub.userId).set({
-            balance: FieldValue.increment(rewardAmt),
-            earned: FieldValue.increment(rewardAmt)
-          }, { merge: true });
-
-          await db.collection('transactions').add({
-            userId: sub.userId,
-            category: 'earnings',
-            type: 'completed',
-            badge: 'Task',
-            amount: rewardAmt,
-            title: `₹${rewardAmt.toFixed(2)} Cashback`,
-            subtitle: `Task Reward - ${sub.taskName}`,
-            status: 'Completed',
-            date: nowStr,
-            createdAt: FieldValue.serverTimestamp()
-          });
-        }
-
-        let bonusMsg = '';
-        const refPct = Number(state.settings.referralPercent || 50);
-        const comm = Math.round((rewardAmt * refPct) / 100);
-
-        if (sub.referrerId && comm > 0) {
-          await db.collection('users').doc(sub.referrerId).set({
-            balance: FieldValue.increment(comm),
-            earned: FieldValue.increment(comm)
-          }, { merge: true });
-
-          await db.collection('transactions').add({
-            userId: sub.referrerId,
-            category: 'earnings',
-            type: 'referral',
-            badge: 'Referral',
-            amount: comm,
-            title: `₹${comm.toFixed(2)} Cashback`,
-            subtitle: `${refPct}% Commission - ${sub.userName} (${sub.taskName})`,
+          transaction.update(submissionRef, {
             status: 'Approved',
-            date: nowStr,
-            createdAt: FieldValue.serverTimestamp()
+            approvedAt: FieldValue.serverTimestamp()
           });
-          bonusMsg = ` + ₹${comm} (${refPct}%) to ${sub.referrer || sub.referrerId}`;
-        }
 
+          if (userTaskRef) {
+            transaction.set(userTaskRef, {
+              userId: sub.userId,
+              offerId: sub.taskId,
+              status: 'completed',
+              completedAt: FieldValue.serverTimestamp()
+            }, { merge: true });
+          }
+
+          if (userRef) {
+            transaction.set(userRef, {
+              balance: FieldValue.increment(rewardAmt),
+              earned: FieldValue.increment(rewardAmt)
+            }, { merge: true });
+            transaction.set(userTxnRef, {
+              userId: sub.userId,
+              category: 'earnings',
+              type: 'completed',
+              badge: 'Task',
+              amount: rewardAmt,
+              title: `₹${rewardAmt.toFixed(2)} Cashback`,
+              subtitle: `Task Reward - ${sub.taskName}`,
+              status: 'Completed',
+              date: nowStr,
+              createdAt: FieldValue.serverTimestamp()
+            });
+          }
+
+          if (referrerRef) {
+            transaction.set(referrerRef, {
+              balance: FieldValue.increment(comm),
+              earned: FieldValue.increment(comm)
+            }, { merge: true });
+            transaction.set(refTxnRef, {
+              userId: sub.referrerId,
+              category: 'earnings',
+              type: 'referral',
+              badge: 'Referral',
+              amount: comm,
+              title: `₹${comm.toFixed(2)} Cashback`,
+              subtitle: `${refPct}% Commission - ${sub.userName} (${sub.taskName})`,
+              status: 'Approved',
+              date: nowStr,
+              createdAt: FieldValue.serverTimestamp()
+            });
+          }
+          return { alreadyProcessed: false };
+        });
+
+        if (result && result.alreadyProcessed) {
+          toast('This submission has already been processed. Refreshing the list.', 'info');
+          return;
+        }
         closeModal('proof-modal');
+        const bonusMsg = referrerRef ? ` + ₹${comm} (${refPct}%) to ${sub.referrer || sub.referrerId}` : '';
         toast(`Approved! Credited ₹${rewardAmt} to ${sub.userName}${bonusMsg}`, 'success');
       } catch (err) {
-        console.error('Approve task error:', err);
-        toast(`Failed to approve task: ${err.message}`, 'error');
+        console.error('Approve task transaction error:', err);
+        toast(`Approval was not completed: ${err.message}`, 'error');
       }
     }
 
@@ -2046,6 +2088,8 @@
       document.getElementById('set-tg-channel').value = state.settings.telegramChannel;
       document.getElementById('set-tg-support').value = state.settings.supportLink;
       document.getElementById('set-admin-email').value = state.settings.adminEmail || 'sec-adminduniya77@gmail.com';
+      document.getElementById('set-allow-mobile').checked = state.settings.allowMobileNumber === true;
+      document.getElementById('set-allow-proof').checked = state.settings.allowProofSubmission === true;
     }
 
     async function saveAppSettings(e) {
@@ -2055,7 +2099,9 @@
         referralPercent: Number(document.getElementById('set-ref-pct').value || 50),
         telegramChannel: document.getElementById('set-tg-channel').value.trim(),
         supportLink: document.getElementById('set-tg-support').value.trim(),
-        adminEmail: document.getElementById('set-admin-email').value.trim() || 'sec-adminduniya77@gmail.com'
+        adminEmail: document.getElementById('set-admin-email').value.trim() || 'sec-adminduniya77@gmail.com',
+        allowMobileNumber: document.getElementById('set-allow-mobile').checked,
+        allowProofSubmission: document.getElementById('set-allow-proof').checked
       };
       try {
         await db.collection('settings').doc('app').set(updated, { merge: true });
