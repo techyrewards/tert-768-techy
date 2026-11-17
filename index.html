@@ -734,7 +734,7 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
     const auth = firebase.auth();
     const db = firebase.firestore();
     try {
-      db.settings({ experimentalAutoDetectLongPolling: true });
+      db.settings({ experimentalAutoDetectLongPolling: true, merge: true });
     } catch (_) {}
     const { FieldValue } = firebase.firestore;
     let listenersStarted = false;
@@ -2994,11 +2994,11 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
 
     function escapeHtml(str) {
       return String(str ?? '')
-        .replace(/&/g, '&')
-        .replace(/</g, '<')
-        .replace(/>/g, '>')
-        .replace(/"/g, '"')
-        .replace(/'/g, ''');
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
     }
 
     function statusPill(status) {
