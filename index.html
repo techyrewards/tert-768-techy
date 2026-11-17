@@ -83,7 +83,7 @@
           TECHY REWARD ADMIN
         </span>
         <h2 class="text-xl font-extrabold text-slate-900">Admin Login</h2>
-        <p class="text-xs text-slate-500 mt-1">Sign in with your admin email and password to manage payouts &amp; tasks</p>
+        <p class="text-xs text-slate-500 mt-1">Sign in with your authorized admin account to manage payouts & tasks</p>
       </div>
       <form onsubmit="unlockAdmin(event)" class="space-y-3.5 text-left">
         <div>
@@ -138,6 +138,10 @@
 
       <!-- Quick Header Actions -->
       <div class="flex items-center gap-2">
+        <button onclick="switchTab('logs')" title="Admin Activity Logs" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer">
+          <i data-lucide="history" class="w-3.5 h-3.5"></i>
+          <span class="hidden sm:inline">Audit Logs</span>
+        </button>
         <div id="db-pill" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200/80">
           <i data-lucide="database" class="w-3.5 h-3.5"></i>
           <span class="hidden sm:inline" id="db-pill-label">Connecting...</span>
@@ -177,7 +181,7 @@
             <i data-lucide="activity" class="w-3.5 h-3.5"></i>
             Daily Admin Overview
           </span>
-          <h2 class="text-xl sm:text-2xl font-extrabold tracking-tight">Manage Tasks, Submissions &amp; Payouts</h2>
+          <h2 class="text-xl sm:text-2xl font-extrabold tracking-tight">Manage Tasks, Submissions & Payouts</h2>
           <p class="text-xs sm:text-sm text-white/85 max-w-xl">
             Create and manage ongoing tasks, review submissions, process withdrawals, and resolve user tickets in real time.
           </p>
@@ -272,26 +276,28 @@
           <button onclick="setTaskFilter('All')" id="tfilter-All" class="tfilter-btn px-4 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer">All</button>
         </div>
         <span class="text-xs text-slate-500 bg-white px-3.5 py-2 rounded-xl border border-slate-200/80">
-          Referral Bonus: <strong class="text-emerald-600" id="display-task-ref-pct">50%</strong> auto-credited on approval
+          Referral Bonus: <strong class="text-emerald-600" id="display-task-ref-pct">50%</strong> credited after 3 tasks or 1 Prime task
         </span>
       </div>
       <div id="tasks-container" class="space-y-3"></div>
     </section>
 
-    <!-- ==================== SECTION 1B: STARTED / ONGOING TASKS ==================== -->
+    <!-- ==================== SECTION 1B: USERS & ONGOING TASKS ==================== -->
     <section id="view-started" class="hidden space-y-4">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="inline-flex p-1 bg-white rounded-2xl border border-slate-200/80 shadow-2xs">
-          <button onclick="setStartedFilter('All')" id="sfilter-All" class="sfilter-btn px-4 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer">All</button>
-          <button onclick="setStartedFilter('started')" id="sfilter-started" class="sfilter-btn px-4 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer">Ongoing</button>
-          <button onclick="setStartedFilter('completed')" id="sfilter-completed" class="sfilter-btn px-4 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer">Completed</button>
-          <button onclick="setStartedFilter('rejected')" id="sfilter-rejected" class="sfilter-btn px-4 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer">Rejected</button>
+          <button onclick="setUsersSubView('tasks')" id="usub-tasks" class="px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-white transition cursor-pointer">User Tasks</button>
+          <button onclick="setUsersSubView('accounts')" id="usub-accounts" class="px-4 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 transition cursor-pointer">Accounts & Suspension</button>
         </div>
-        <span class="text-xs text-slate-500 bg-white px-3.5 py-2 rounded-xl border border-slate-200/80">
-          All user task records • manage status or remove records
-        </span>
+        <div id="started-filters-wrap" class="inline-flex p-1 bg-white rounded-2xl border border-slate-200/80 shadow-2xs">
+          <button onclick="setStartedFilter('All')" id="sfilter-All" class="sfilter-btn px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer">All</button>
+          <button onclick="setStartedFilter('started')" id="sfilter-started" class="sfilter-btn px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer">Ongoing</button>
+          <button onclick="setStartedFilter('completed')" id="sfilter-completed" class="sfilter-btn px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer">Completed</button>
+          <button onclick="setStartedFilter('rejected')" id="sfilter-rejected" class="sfilter-btn px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer">Rejected</button>
+        </div>
       </div>
       <div id="started-container" class="space-y-3"></div>
+      <div id="user-accounts-container" class="hidden space-y-3"></div>
     </section>
 
     <!-- ==================== SECTION 1C: REFERRAL LEADERBOARD ==================== -->
@@ -300,9 +306,15 @@
         <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
           <div>
             <h3 class="text-sm font-extrabold text-slate-900">Top Referral Users</h3>
-            <p class="text-xs text-slate-500 mt-0.5">Ranked by the number of users they referred</p>
+            <p class="text-xs text-slate-500 mt-0.5">Commission unlocks after referred user completes 3 tasks or 1 Prime task</p>
           </div>
-          <span id="referrals-total" class="px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 text-xs font-bold">0 referrals</span>
+          <div class="flex items-center gap-2">
+            <button id="sync-referrals-btn" onclick="syncAllReferrals()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold transition cursor-pointer">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+              <span>Sync Referrals</span>
+            </button>
+            <span id="referrals-total" class="px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 text-xs font-bold">0 referrals</span>
+          </div>
         </div>
         <div id="referrals-container" class="space-y-3"></div>
       </div>
@@ -359,7 +371,7 @@
           <button onclick="setTicketFilter('All')" id="tkfilter-All" class="tkfilter-btn px-4 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer">All</button>
         </div>
         <span class="text-xs text-slate-500 bg-white px-3.5 py-2 rounded-xl border border-slate-200/80">
-          User-submitted missing reward &amp; payment issues
+          User-submitted missing reward & payment issues
         </span>
       </div>
       <div id="tickets-container" class="space-y-3"></div>
@@ -369,7 +381,7 @@
     <section id="view-settings" class="hidden space-y-4">
       <div class="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/80 shadow-2xs max-w-2xl space-y-5">
         <div>
-          <h3 class="text-base font-extrabold text-slate-900">App Rules &amp; Support Links</h3>
+          <h3 class="text-base font-extrabold text-slate-900">App Rules & Support Links</h3>
           <p class="text-xs text-slate-500 mt-0.5">Configure payout limits, referral commission, and Telegram support links synced live with your User App.</p>
         </div>
         <form onsubmit="saveAppSettings(event)" class="space-y-4">
@@ -383,14 +395,18 @@
               <input type="number" id="set-ref-pct" class="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500" />
             </div>
           </div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <label class="flex items-start gap-3 text-xs font-semibold text-slate-700">
               <input type="checkbox" id="set-allow-mobile" class="mt-0.5 h-4 w-4 accent-emerald-600" />
-              <span>Allow mobile-number collection<br><span class="font-normal text-slate-500">Users can submit a mobile number when an offer requests it.</span></span>
+              <span>Allow mobile-number collection<br><span class="font-normal text-slate-500">Require mobile number when an offer enables it.</span></span>
             </label>
             <label class="flex items-start gap-3 text-xs font-semibold text-slate-700">
               <input type="checkbox" id="set-allow-proof" class="mt-0.5 h-4 w-4 accent-emerald-600" />
-              <span>Allow proof submissions<br><span class="font-normal text-slate-500">Users can upload screenshots or proof notes when an offer requests them.</span></span>
+              <span>Allow proof submissions<br><span class="font-normal text-slate-500">Require screenshot upload when an offer enables it.</span></span>
+            </label>
+            <label class="flex items-start gap-3 text-xs font-semibold text-slate-700">
+              <input type="checkbox" id="set-allow-prime-badge" class="mt-0.5 h-4 w-4 accent-amber-500" />
+              <span>Allow Prime badge<br><span class="font-normal text-slate-500">Display the PRIME tag on offers marked as Prime.</span></span>
             </label>
           </div>
           <div>
@@ -402,8 +418,14 @@
             <input type="text" id="set-tg-support" class="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500" />
           </div>
           <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1.5">Admin Login Email</label>
-            <input type="email" id="set-admin-email" class="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500" />
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="block text-xs font-bold text-slate-700">Authorized Admin Login Email (Locked)</label>
+              <button type="button" onclick="sendAdminPasswordReset()" class="text-[11px] font-bold text-emerald-700 hover:underline cursor-pointer">
+                Send Password Reset Email
+              </button>
+            </div>
+            <input type="email" id="set-admin-email" readonly class="w-full px-3.5 py-2.5 text-sm bg-slate-100 text-slate-600 border border-slate-200 rounded-xl cursor-not-allowed" />
+            <p class="text-[11px] text-slate-400 mt-1">Admin login email is enforced by Firebase Auth & Firestore Rules and cannot be modified from the UI.</p>
           </div>
           <div class="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
             <button type="submit" class="w-full sm:w-auto ml-auto px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm transition cursor-pointer">
@@ -413,36 +435,55 @@
         </form>
       </div>
     </section>
+
+    <!-- ==================== SECTION 6: ADMIN AUDIT LOGS ==================== -->
+    <section id="view-logs" class="hidden space-y-4">
+      <div class="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div>
+            <h3 class="text-sm font-extrabold text-slate-900">Admin Activity & Audit Logs</h3>
+            <p class="text-xs text-slate-500 mt-0.5">Immutable record of approvals, rejections, payouts, suspensions, and setting updates</p>
+          </div>
+          <span id="logs-total-badge" class="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold">0 actions</span>
+        </div>
+        <div id="admin-logs-container" class="space-y-2.5"></div>
+      </div>
+    </section>
   </main>
 
   <!-- ==================== MOBILE BOTTOM NAVIGATION ==================== -->
-  <nav class="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur border-t border-slate-200/90 px-1.5 py-1.5 grid grid-cols-6 gap-0.5">
-    <button onclick="switchTab('offers')" id="mtab-offers" class="mtab-btn flex flex-col items-center justify-center py-1 px-1 rounded-xl text-[10px] font-bold transition relative cursor-pointer">
-      <i data-lucide="list-checks" class="w-4 h-4 mb-0.5"></i>
-      <span>Tasks</span>
-      <span id="mbadge-tasks" class="absolute -top-0.5 right-1.5 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold bg-emerald-500 text-white">0</span>
+  <nav class="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur border-t border-slate-200/90 px-1 py-1.5 grid grid-cols-7 gap-0.5">
+    <button onclick="switchTab('tasks')" id="mtab-tasks" class="mtab-btn flex flex-col items-center justify-center py-1 px-0.5 rounded-xl text-[9px] font-bold transition relative cursor-pointer">
+      <i data-lucide="file-check-2" class="w-4 h-4 mb-0.5"></i>
+      <span>Proofs</span>
+      <span id="mbadge-tasks" class="absolute -top-0.5 right-0.5 px-1 py-0.2 rounded-full text-[8px] font-extrabold bg-emerald-500 text-white">0</span>
     </button>
-    <button onclick="switchTab('started')" id="mtab-started" class="mtab-btn flex flex-col items-center justify-center py-1 px-1 rounded-xl text-[10px] font-bold transition relative cursor-pointer">
+    <button onclick="switchTab('started')" id="mtab-started" class="mtab-btn flex flex-col items-center justify-center py-1 px-0.5 rounded-xl text-[9px] font-bold transition relative cursor-pointer">
       <i data-lucide="users" class="w-4 h-4 mb-0.5"></i>
       <span>Users</span>
-      <span id="mbadge-started" class="absolute -top-0.5 right-1.5 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold bg-sky-500 text-white">0</span>
+      <span id="mbadge-started" class="absolute -top-0.5 right-0.5 px-1 py-0.2 rounded-full text-[8px] font-extrabold bg-sky-500 text-white">0</span>
     </button>
-    <button onclick="switchTab('referrals')" id="mtab-referrals" class="mtab-btn flex flex-col items-center justify-center py-1 px-1 rounded-xl text-[10px] font-bold transition relative cursor-pointer">
+    <button onclick="switchTab('referrals')" id="mtab-referrals" class="mtab-btn flex flex-col items-center justify-center py-1 px-0.5 rounded-xl text-[9px] font-bold transition relative cursor-pointer">
       <i data-lucide="user-plus" class="w-4 h-4 mb-0.5"></i>
       <span>Refs</span>
-      <span id="mbadge-referrals" class="absolute -top-0.5 right-1.5 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold bg-indigo-500 text-white">0</span>
+      <span id="mbadge-referrals" class="absolute -top-0.5 right-0.5 px-1 py-0.2 rounded-full text-[8px] font-extrabold bg-indigo-500 text-white">0</span>
     </button>
-    <button onclick="switchTab('withdrawals')" id="mtab-withdrawals" class="mtab-btn flex flex-col items-center justify-center py-1 px-1 rounded-xl text-[10px] font-bold transition relative cursor-pointer">
+    <button onclick="switchTab('withdrawals')" id="mtab-withdrawals" class="mtab-btn flex flex-col items-center justify-center py-1 px-0.5 rounded-xl text-[9px] font-bold transition relative cursor-pointer">
       <i data-lucide="wallet" class="w-4 h-4 mb-0.5"></i>
       <span>Payouts</span>
-      <span id="mbadge-withdrawals" class="absolute -top-0.5 right-1.5 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold bg-indigo-500 text-white">0</span>
+      <span id="mbadge-withdrawals" class="absolute -top-0.5 right-0.5 px-1 py-0.2 rounded-full text-[8px] font-extrabold bg-indigo-500 text-white">0</span>
     </button>
-    <button onclick="switchTab('tickets')" id="mtab-tickets" class="mtab-btn flex flex-col items-center justify-center py-1 px-1 rounded-xl text-[10px] font-bold transition relative cursor-pointer">
+    <button onclick="switchTab('offers')" id="mtab-offers" class="mtab-btn flex flex-col items-center justify-center py-1 px-0.5 rounded-xl text-[9px] font-bold transition relative cursor-pointer">
+      <i data-lucide="list-checks" class="w-4 h-4 mb-0.5"></i>
+      <span>Tasks</span>
+      <span id="mbadge-offers" class="absolute -top-0.5 right-0.5 px-1 py-0.2 rounded-full text-[8px] font-extrabold bg-teal-600 text-white">0</span>
+    </button>
+    <button onclick="switchTab('tickets')" id="mtab-tickets" class="mtab-btn flex flex-col items-center justify-center py-1 px-0.5 rounded-xl text-[9px] font-bold transition relative cursor-pointer">
       <i data-lucide="ticket" class="w-4 h-4 mb-0.5"></i>
       <span>Tickets</span>
-      <span id="mbadge-tickets" class="absolute -top-0.5 right-1.5 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold bg-purple-500 text-white">0</span>
+      <span id="mbadge-tickets" class="absolute -top-0.5 right-0.5 px-1 py-0.2 rounded-full text-[8px] font-extrabold bg-purple-500 text-white">0</span>
     </button>
-    <button onclick="switchTab('settings')" id="mtab-settings" class="mtab-btn flex flex-col items-center justify-center py-1 px-1 rounded-xl text-[10px] font-bold transition cursor-pointer">
+    <button onclick="switchTab('settings')" id="mtab-settings" class="mtab-btn flex flex-col items-center justify-center py-1 px-0.5 rounded-xl text-[9px] font-bold transition cursor-pointer">
       <i data-lucide="sliders-horizontal" class="w-4 h-4 mb-0.5"></i>
       <span>Settings</span>
     </button>
@@ -509,7 +550,7 @@
       </div>
       <div class="px-5 py-3.5 bg-slate-50 border-t border-slate-100 flex justify-end gap-2">
         <button onclick="closeModal('reject-modal')" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200/70 cursor-pointer">Cancel</button>
-        <button onclick="confirmReject()" class="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white cursor-pointer">Confirm Reject</button>
+        <button id="rm-confirm-btn" onclick="confirmReject()" class="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white cursor-pointer">Confirm Reject</button>
       </div>
     </div>
   </div>
@@ -548,7 +589,7 @@
       </div>
       <div class="px-5 py-3.5 bg-slate-50 border-t border-slate-100 flex justify-end gap-2">
         <button onclick="closeModal('pay-modal')" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200/70 cursor-pointer">Cancel</button>
-        <button onclick="confirmPay()" class="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-white cursor-pointer">Mark Paid</button>
+        <button id="pm-confirm-btn" onclick="confirmPay()" class="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-white cursor-pointer">Mark Paid</button>
       </div>
     </div>
   </div>
@@ -588,7 +629,7 @@
           </div>
         </div>
         <div>
-          <label class="block text-xs font-bold text-slate-700 mb-1">Offer Name</label>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Offer Name <span class="text-rose-500">*</span></label>
           <input type="text" id="om-name" placeholder="e.g., Angel One" class="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500" />
         </div>
         <div>
@@ -604,24 +645,33 @@
             </select>
           </div>
           <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Reward (₹)</label>
-            <input type="number" id="om-reward" placeholder="200" class="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500" />
+            <label class="block text-xs font-bold text-slate-700 mb-1">Reward (₹) <span class="text-rose-500">*</span></label>
+            <input type="number" id="om-reward" min="1" step="0.01" placeholder="200" class="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500" />
           </div>
         </div>
         <label for="om-prime-badge" class="flex items-center justify-between gap-3 bg-amber-50/60 border border-amber-200 rounded-2xl p-3.5 cursor-pointer">
           <div class="space-y-0.5 pr-2">
-            <span class="text-xs font-extrabold text-slate-900 block">Show Prime Badge</span>
-            <span class="text-[11px] text-slate-500 block leading-snug">Optional: enable the Prime badge only for tasks you choose</span>
+            <span class="text-xs font-extrabold text-slate-900 block">Prime Task / Show Prime Badge</span>
+            <span class="text-[11px] text-slate-500 block leading-snug">Counts as a Prime task for referral qualification & displays the PRIME badge</span>
           </div>
           <input type="checkbox" id="om-prime-badge" class="w-4 h-4 accent-amber-500 shrink-0" />
         </label>
         <div>
-          <label class="block text-xs font-bold text-slate-700 mb-1">Affiliate Redirect Link</label>
-          <input type="text" id="om-url" placeholder="https://..." class="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500" />
+          <label class="block text-xs font-bold text-slate-700 mb-1">Affiliate / Playback Redirect Link</label>
+          <input type="text" id="om-url" placeholder="https://... (supports {user_id}, {task_id})" class="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500" />
         </div>
         <div>
           <label class="block text-xs font-bold text-slate-700 mb-1">Steps (1 per line)</label>
-          <textarea id="om-steps" rows="3" placeholder="Install app &amp; register&#10;Complete KYC&#10;Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500"></textarea>
+          <textarea id="om-steps" rows="3" placeholder="Install app & register
+Complete KYC
+Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500"></textarea>
+        </div>
+
+        <!-- Optional Dynamic Custom Field (PAN No, Folio No, Transaction ID, etc.) -->
+        <div class="bg-sky-50/60 border border-sky-200/80 rounded-2xl p-3.5 space-y-1.5">
+          <label for="om-custom-field-label" class="block text-xs font-extrabold text-slate-900">Custom Input Field Label (Optional)</label>
+          <input type="text" id="om-custom-field-label" placeholder="e.g., PAN Number, Folio No, or Transaction ID" class="w-full px-3 py-2 text-xs sm:text-sm bg-white border border-sky-200 rounded-xl focus:outline-none focus:border-sky-500" />
+          <p class="text-[11px] text-slate-500 leading-snug">Leave blank if not needed. If set, users must fill this field when submitting the task.</p>
         </div>
 
         <!-- Optional Auto-Remove Offer Based on Started Users -->
@@ -639,18 +689,18 @@
           </div>
         </div>
 
-        <!-- Optional task submission fields -->
+        <!-- Mandatory task submission fields when enabled -->
         <label for="om-collect-mobile" class="flex items-center justify-between gap-3 bg-slate-50 hover:bg-emerald-50/40 border border-slate-200 rounded-2xl p-3.5 cursor-pointer transition">
           <div class="space-y-0.5 pr-2">
-            <span class="text-xs font-extrabold text-slate-900 block">Optional Mobile Number</span>
-            <span class="text-[11px] text-slate-500 block leading-snug">Let users submit a mobile number for this task</span>
+            <span class="text-xs font-extrabold text-slate-900 block">Require Mobile Number</span>
+            <span class="text-[11px] text-slate-500 block leading-snug">Users must enter a valid mobile number to submit this task</span>
           </div>
           <input type="checkbox" id="om-collect-mobile" class="w-4 h-4 accent-emerald-500 shrink-0" />
         </label>
         <label for="om-allow-proof" class="flex items-center justify-between gap-3 bg-slate-50 hover:bg-emerald-50/40 border border-slate-200 rounded-2xl p-3.5 cursor-pointer transition">
           <div class="space-y-0.5 pr-2">
-            <span class="text-xs font-extrabold text-slate-900 block">Optional Proof Submission</span>
-            <span class="text-[11px] text-slate-500 block leading-snug">Allow users to attach a screenshot or proof with their task submission</span>
+            <span class="text-xs font-extrabold text-slate-900 block">Require Proof Screenshot</span>
+            <span class="text-[11px] text-slate-500 block leading-snug">Users must upload a screenshot proof to submit this task</span>
           </div>
           <input type="checkbox" id="om-allow-proof" class="w-4 h-4 accent-emerald-500 shrink-0" />
         </label>
@@ -676,10 +726,16 @@
       appId: "1:430187217619:web:9a47a59517027559874a26"
     };
 
-    firebase.initializeApp(firebaseConfig);
+    const ALLOWED_ADMIN_EMAIL = 'sec-adminduniya77@gmail.com';
+
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
     const auth = firebase.auth();
     const db = firebase.firestore();
-    db.settings({ experimentalAutoDetectLongPolling: true, merge: true });
+    try {
+      db.settings({ experimentalAutoDetectLongPolling: true });
+    } catch (_) {}
     const { FieldValue } = firebase.firestore;
     let listenersStarted = false;
 
@@ -690,9 +746,10 @@
         referralPercent: 50,
         telegramChannel: 'https://t.me/techyrewards',
         supportLink: 'https://t.me/techyrewardsbot',
-        adminEmail: 'sec-adminduniya77@gmail.com',
+        adminEmail: ALLOWED_ADMIN_EMAIL,
         allowMobileNumber: false,
-        allowProofSubmission: false
+        allowProofSubmission: false,
+        allowPrimeBadge: false
       },
       submissions: [],
       withdrawals: [],
@@ -700,10 +757,12 @@
       userTasks: [],
       referrals: [],
       users: [],
-      tickets: []
+      tickets: [],
+      adminLogs: []
     };
 
     let currentTab = 'tasks';
+    let usersSubView = 'tasks';
     let taskFilter = 'Pending';
     let startedFilter = 'All';
     let wdFilter = 'Pending';
@@ -713,6 +772,39 @@
     let rejectCtx = null;
     let payCtxId = null;
     const autoRemoveInFlight = new Set();
+
+    function roundMoney(val) {
+      const n = Number(val || 0);
+      if (!Number.isFinite(n)) return 0;
+      return Math.round(n * 100) / 100;
+    }
+
+    function formatMoney(val) {
+      const r = roundMoney(val);
+      return Number.isInteger(r) ? `₹${r}` : `₹${r.toFixed(2)}`;
+    }
+
+    function isAuthorizedAdminUser(user) {
+      return Boolean(user && user.email && String(user.email).trim().toLowerCase() === ALLOWED_ADMIN_EMAIL);
+    }
+
+    async function logAdminAction(action, targetType, targetId, details) {
+      const user = auth.currentUser;
+      if (!isAuthorizedAdminUser(user)) return;
+      try {
+        await db.collection('adminLogs').add({
+          adminEmail: user.email,
+          action: String(action || ''),
+          targetType: String(targetType || ''),
+          targetId: String(targetId || ''),
+          details: String(details || ''),
+          date: formatNowDate(),
+          createdAt: FieldValue.serverTimestamp()
+        });
+      } catch (err) {
+        console.warn('Admin audit log write note:', err.message);
+      }
+    }
 
     function showRejectionAlert(message) {
       const banner = document.getElementById('rejection-alert-banner');
@@ -797,6 +889,7 @@
               autoRemovedByStarts: true,
               autoRemovedReason: `Reached ${startedCount}/${limit} started users`
             });
+            await logAdminAction('AUTO_REMOVE_OFFER', 'offers', offer.id, `Auto-removed "${offer.name}" at ${startedCount}/${limit} started users`);
             toast(`Auto-removed "${offer.name}" (${startedCount}/${limit} users started)`, 'info');
           } catch (err) {
             console.error('Auto-remove by started users error:', err);
@@ -813,7 +906,7 @@
         setDbStatus(true);
         if (docSnap.exists) {
           const { adminPass, ...safeSettings } = docSnap.data() || {};
-          state.settings = { ...state.settings, ...safeSettings };
+          state.settings = { ...state.settings, ...safeSettings, adminEmail: ALLOWED_ADMIN_EMAIL };
           populateSettingsForm();
           render();
         }
@@ -829,13 +922,14 @@
             name: data.name || data.title || 'Offer',
             subtitle: data.subtitle || data.desc || '',
             category: normCat,
-            reward: Number(data.reward || 0),
+            reward: roundMoney(data.reward),
             url: data.url || data.link || '',
             logo: data.logo || '',
             active: data.active !== false,
-            primeBadge: Boolean(data.primeBadge),
+            primeBadge: Boolean(data.primeBadge || data.isPrime),
             collectMobile: Boolean(data.collectMobile),
             allowProofSubmission: Boolean(data.allowProofSubmission ?? data.requireProof),
+            customFieldLabel: String(data.customFieldLabel || '').trim(),
             autoRemoveByStarts: Boolean(data.autoRemoveByStarts),
             maxStartedUsers: Number(data.maxStartedUsers || 0) || null,
             startedCount: Number(data.startedCount || 0),
@@ -854,7 +948,6 @@
         render();
       }, (err) => setDbStatus(false, err.code));
 
-      // Referral records are stored one document per referred user.
       db.collection('referrals').onSnapshot((snap) => {
         state.referrals = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         render();
@@ -863,13 +956,12 @@
         toast('Could not load referrals: ' + (err.message || err.code), 'error');
       });
 
-      // User profiles provide names and the app's aggregate referralsCount.
       db.collection('users').onSnapshot((snap) => {
         state.users = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         render();
       }, (err) => console.warn('Users listener error:', err));
 
-      db.collection('submissions').onSnapshot((snap) => {
+      db.collection('submissions').limit(200).onSnapshot((snap) => {
         setDbStatus(true);
         state.submissions = snap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
@@ -878,7 +970,7 @@
         render();
       }, (err) => setDbStatus(false, err.code));
 
-      db.collection('withdrawals').onSnapshot((snap) => {
+      db.collection('withdrawals').limit(200).onSnapshot((snap) => {
         setDbStatus(true);
         state.withdrawals = snap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
@@ -886,13 +978,20 @@
         render();
       }, (err) => setDbStatus(false, err.code));
 
-      db.collection('tickets').onSnapshot((snap) => {
+      db.collection('tickets').limit(150).onSnapshot((snap) => {
         setDbStatus(true);
         state.tickets = snap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
           .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
         render();
       }, (err) => setDbStatus(false, err.code));
+
+      db.collection('adminLogs').limit(100).onSnapshot((snap) => {
+        state.adminLogs = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+        render();
+      }, (err) => console.warn('Admin logs listener:', err.message));
     }
 
     // ==================== EMAIL & PASSWORD LOGIN (FIREBASE AUTH) ====================
@@ -905,6 +1004,12 @@
 
       if (!emailVal || !passVal) {
         errEl.textContent = 'Please enter both email and password.';
+        errEl.classList.remove('hidden');
+        return;
+      }
+
+      if (emailVal.toLowerCase() !== ALLOWED_ADMIN_EMAIL) {
+        errEl.textContent = 'Unauthorized email. Only the designated admin account is permitted.';
         errEl.classList.remove('hidden');
         return;
       }
@@ -922,7 +1027,11 @@
             await auth.setPersistence(firebase.auth.Auth.Persistence.NONE);
           } catch (_) {}
         }
-        await auth.signInWithEmailAndPassword(emailVal, passVal);
+        const cred = await auth.signInWithEmailAndPassword(emailVal, passVal);
+        if (!isAuthorizedAdminUser(cred.user)) {
+          await auth.signOut();
+          throw new Error('Unauthorized admin account.');
+        }
         document.getElementById('lock-screen').classList.add('hidden');
         errEl.classList.add('hidden');
         if (!listenersStarted) {
@@ -950,13 +1059,46 @@
       document.getElementById('lock-screen').classList.remove('hidden');
     }
 
+    async function sendAdminPasswordReset() {
+      try {
+        await auth.sendPasswordResetEmail(ALLOWED_ADMIN_EMAIL);
+        toast(`Password reset link sent to ${ALLOWED_ADMIN_EMAIL}`, 'success');
+      } catch (err) {
+        toast(`Could not send reset email: ${err.message}`, 'error');
+      }
+    }
+
     // ==================== NAVIGATION & RENDER ====================
     function switchTab(tab) {
       currentTab = tab;
-      ['tasks', 'started', 'referrals', 'withdrawals', 'offers', 'tickets', 'settings'].forEach((t) => {
+      ['tasks', 'started', 'referrals', 'withdrawals', 'offers', 'tickets', 'settings', 'logs'].forEach((t) => {
         const view = document.getElementById(`view-${t}`);
         if (view) view.classList.toggle('hidden', t !== tab);
       });
+      render();
+    }
+
+    function setUsersSubView(sub) {
+      usersSubView = sub;
+      const tasksBtn = document.getElementById('usub-tasks');
+      const accBtn = document.getElementById('usub-accounts');
+      const filtersWrap = document.getElementById('started-filters-wrap');
+      const startedBox = document.getElementById('started-container');
+      const accountsBox = document.getElementById('user-accounts-container');
+
+      if (sub === 'accounts') {
+        if (accBtn) accBtn.className = 'px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-white transition cursor-pointer';
+        if (tasksBtn) tasksBtn.className = 'px-4 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 transition cursor-pointer';
+        if (filtersWrap) filtersWrap.classList.add('hidden');
+        if (startedBox) startedBox.classList.add('hidden');
+        if (accountsBox) accountsBox.classList.remove('hidden');
+      } else {
+        if (tasksBtn) tasksBtn.className = 'px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-white transition cursor-pointer';
+        if (accBtn) accBtn.className = 'px-4 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 transition cursor-pointer';
+        if (filtersWrap) filtersWrap.classList.remove('hidden');
+        if (startedBox) startedBox.classList.remove('hidden');
+        if (accountsBox) accountsBox.classList.add('hidden');
+      }
       render();
     }
 
@@ -970,30 +1112,32 @@
       updateNavStyles();
       renderTasks();
       renderStartedTasks();
+      renderUserAccounts();
       renderReferrals();
       renderWithdrawals();
       renderOffers();
       renderTickets();
+      renderAdminLogs();
       if (window.lucide) lucide.createIcons();
     }
 
     function updateStats() {
       const pTasks = state.submissions.filter((s) => s.status === 'Pending');
-      const pTaskVal = pTasks.reduce((s, i) => s + Number(i.reward || 0), 0);
+      const pTaskVal = roundMoney(pTasks.reduce((s, i) => s + roundMoney(i.reward), 0));
       const pWds = state.withdrawals.filter((w) => w.status === 'Pending');
-      const pWdVal = pWds.reduce((s, i) => s + Number(i.amount || 0), 0);
+      const pWdVal = roundMoney(pWds.reduce((s, i) => s + roundMoney(i.amount), 0));
       const activeOff = state.offers.filter((o) => o.active);
       const paidWds = state.withdrawals.filter((w) => w.status === 'Paid');
-      const paidVal = paidWds.reduce((s, i) => s + Number(i.amount || 0), 0);
+      const paidVal = roundMoney(paidWds.reduce((s, i) => s + roundMoney(i.amount), 0));
       const openTickets = state.tickets.filter((tk) => tk.status !== 'Resolved');
 
       document.getElementById('stat-pending-tasks').textContent = pTasks.length;
-      document.getElementById('stat-pending-tasks-amt').textContent = `₹${pTaskVal} value`;
+      document.getElementById('stat-pending-tasks-amt').textContent = `${formatMoney(pTaskVal)} value`;
       document.getElementById('stat-pending-wd').textContent = pWds.length;
-      document.getElementById('stat-pending-wd-amt').textContent = `₹${pWdVal} due`;
+      document.getElementById('stat-pending-wd-amt').textContent = `${formatMoney(pWdVal)} due`;
       document.getElementById('stat-active-offers').textContent = activeOff.length;
       document.getElementById('stat-total-offers').textContent = `of ${state.offers.length} offers`;
-      document.getElementById('stat-total-paid').textContent = `₹${paidVal}`;
+      document.getElementById('stat-total-paid').textContent = formatMoney(paidVal);
       document.getElementById('stat-paid-count').textContent = `${paidWds.length} transfers`;
 
       document.getElementById('dbadge-tasks').textContent = pTasks.length;
@@ -1008,7 +1152,11 @@
       document.getElementById('dbadge-withdrawals').textContent = pWds.length;
       document.getElementById('dbadge-offers').textContent = activeOff.length;
       document.getElementById('dbadge-tickets').textContent = openTickets.length;
-      document.getElementById('mbadge-tasks').textContent = activeOff.length;
+
+      const mbadgeTasks = document.getElementById('mbadge-tasks');
+      if (mbadgeTasks) mbadgeTasks.textContent = pTasks.length;
+      const mbadgeOffers = document.getElementById('mbadge-offers');
+      if (mbadgeOffers) mbadgeOffers.textContent = activeOff.length;
       if (document.getElementById('mbadge-withdrawals')) document.getElementById('mbadge-withdrawals').textContent = pWds.length;
       if (document.getElementById('mbadge-tickets')) document.getElementById('mbadge-tickets').textContent = openTickets.length;
 
@@ -1025,10 +1173,10 @@
         const mBtn = document.getElementById(`mtab-${t}`);
         if (t === currentTab) {
           if (dBtn) dBtn.className = 'dtab-btn flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-500 text-white shadow-xs transition cursor-pointer shrink-0';
-          if (mBtn) mBtn.className = 'mtab-btn flex flex-col items-center justify-center py-1 px-1 rounded-xl text-[10px] font-extrabold text-emerald-600 transition relative cursor-pointer';
+          if (mBtn) mBtn.className = 'mtab-btn flex flex-col items-center justify-center py-1 px-0.5 rounded-xl text-[9px] font-extrabold text-emerald-600 transition relative cursor-pointer';
         } else {
           if (dBtn) dBtn.className = 'dtab-btn flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition cursor-pointer shrink-0';
-          if (mBtn) mBtn.className = 'mtab-btn flex flex-col items-center justify-center py-1 px-1 rounded-xl text-[10px] font-bold text-slate-400 hover:text-slate-700 transition relative cursor-pointer';
+          if (mBtn) mBtn.className = 'mtab-btn flex flex-col items-center justify-center py-1 px-0.5 rounded-xl text-[9px] font-bold text-slate-400 hover:text-slate-700 transition relative cursor-pointer';
         }
       });
 
@@ -1042,8 +1190,8 @@
       ['All', 'started', 'completed', 'rejected'].forEach((f) => {
         const el = document.getElementById(`sfilter-${f}`);
         if (el) el.className = f === startedFilter
-          ? 'sfilter-btn px-4 py-1.5 rounded-xl text-xs font-bold bg-emerald-500 text-white shadow-2xs transition cursor-pointer'
-          : 'sfilter-btn px-4 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 transition cursor-pointer';
+          ? 'sfilter-btn px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-500 text-white shadow-2xs transition cursor-pointer'
+          : 'sfilter-btn px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 transition cursor-pointer';
       });
 
       ['Pending', 'Paid', 'Rejected', 'All'].forEach((f) => {
@@ -1068,6 +1216,200 @@
       });
     }
 
+    // ==================== REFERRAL CONDITION HELPER ====================
+    function isPrimeTaskRecord(record) {
+      if (!record) return false;
+      const cat = String(record.category || '').toLowerCase();
+      if (cat === 'kyc' || cat === 'prime') return true;
+      if (record.isPrime === true || record.primeBadge === true) return true;
+      if (record.offerSnapshot && (record.offerSnapshot.isPrime === true || String(record.offerSnapshot.tag || '').toUpperCase() === 'PRIME')) return true;
+      const offerId = record.taskId || record.offerId;
+      if (offerId) {
+        const matchedOffer = state.offers.find((o) => String(o.id) === String(offerId));
+        if (matchedOffer && (matchedOffer.primeBadge || matchedOffer.category === 'kyc')) return true;
+      }
+      return false;
+    }
+
+    async function applyReferralConditionPayout({ userId, userName, referrerId, referrerName, currentTaskId, currentOfferId, currentTaskName, currentReward, currentIsPrime, nowStr }) {
+      if (!referrerId || String(referrerId) === String(userId)) {
+        return { creditedNow: 0, qualified: false, tasksCompleted: 0 };
+      }
+
+      const refPct = Math.max(0, Math.min(100, Number(state.settings.referralPercent ?? 50) || 0));
+
+      const userSubsSnap = await db.collection('submissions')
+        .where('userId', '==', String(userId))
+        .get();
+
+      const uniqueByOffer = new Map();
+
+      userSubsSnap.docs.forEach((doc) => {
+        const d = doc.data() || {};
+        if (d.status !== 'Approved') return;
+        if (currentTaskId && doc.id === currentTaskId) return;
+        const offerKey = String(d.taskId || doc.id);
+        if (!uniqueByOffer.has(offerKey)) {
+          uniqueByOffer.set(offerKey, {
+            id: doc.id,
+            offerKey,
+            taskName: d.taskName || 'Task',
+            reward: roundMoney(d.reward),
+            isPrime: isPrimeTaskRecord(d),
+            sec: d.approvedAt?.seconds || d.createdAt?.seconds || 0
+          });
+        }
+      });
+
+      if (currentTaskId || currentOfferId) {
+        const currentOfferKey = String(currentOfferId || currentTaskId);
+        if (!uniqueByOffer.has(currentOfferKey)) {
+          uniqueByOffer.set(currentOfferKey, {
+            id: currentTaskId || currentOfferKey,
+            offerKey: currentOfferKey,
+            taskName: currentTaskName || 'Task',
+            reward: roundMoney(currentReward),
+            isPrime: Boolean(currentIsPrime),
+            sec: Math.floor(Date.now() / 1000)
+          });
+        }
+      }
+
+      const approvedTasks = Array.from(uniqueByOffer.values()).sort((a, b) => a.sec - b.sec);
+
+      const tasksCompleted = approvedTasks.length;
+      const primeTasksCompleted = approvedTasks.filter((t) => t.isPrime).length;
+      const isQualified = tasksCompleted >= 3 || primeTasksCompleted >= 1;
+      const friendTotalEarned = roundMoney(approvedTasks.reduce((sum, t) => sum + roundMoney(t.reward), 0));
+
+      const firstThreeTasks = approvedTasks.slice(0, 3);
+      const totalEligibleCommission = isQualified
+        ? roundMoney(firstThreeTasks.reduce((sum, t) => sum + Math.round((roundMoney(t.reward) * refPct) / 100), 0))
+        : 0;
+
+      const referralDocRef = db.collection('referrals').doc(String(userId));
+      const referrerUserRef = db.collection('users').doc(String(referrerId));
+
+      let creditedNow = 0;
+
+      await db.runTransaction(async (tx) => {
+        const refDocSnap = await tx.get(referralDocRef);
+        const prevCredited = refDocSnap.exists ? roundMoney(refDocSnap.data()?.commissionCredited) : 0;
+
+        if (isQualified && totalEligibleCommission > prevCredited) {
+          creditedNow = roundMoney(totalEligibleCommission - prevCredited);
+        }
+
+        tx.set(referralDocRef, {
+          referrerId: String(referrerId),
+          referrerName: referrerName || (refDocSnap.exists ? refDocSnap.data()?.referrerName : '') || `User ${referrerId}`,
+          referredUserId: String(userId),
+          referredUserName: userName || `User ${userId}`,
+          commissionPercent: refPct,
+          tasksCompleted: tasksCompleted,
+          primeTasksCompleted: primeTasksCompleted,
+          qualified: isQualified,
+          friendTotalEarned: friendTotalEarned,
+          commissionEarned: totalEligibleCommission,
+          commissionCredited: roundMoney(prevCredited + creditedNow),
+          status: isQualified ? 'Qualified' : 'Pending',
+          updatedAt: FieldValue.serverTimestamp()
+        }, { merge: true });
+
+        if (creditedNow > 0) {
+          tx.set(referrerUserRef, {
+            balance: FieldValue.increment(creditedNow),
+            earned: FieldValue.increment(creditedNow)
+          }, { merge: true });
+
+          const refTxnRef = db.collection('transactions').doc();
+          tx.set(refTxnRef, {
+            userId: String(referrerId),
+            category: 'earnings',
+            type: 'referral',
+            badge: 'Referral',
+            amount: creditedNow,
+            title: `₹${creditedNow.toFixed(2)} Cashback`,
+            subtitle: `${refPct}% Referral Bonus - ${userName || userId} (${primeTasksCompleted >= 1 ? 'Prime Task Qualified' : '3 Tasks Qualified'})`,
+            status: 'Approved',
+            date: nowStr || formatNowDate(),
+            createdAt: FieldValue.serverTimestamp()
+          });
+        }
+      });
+
+      return { creditedNow, qualified: isQualified, tasksCompleted };
+    }
+
+    async function syncAllReferrals() {
+      const btn = document.getElementById('sync-referrals-btn');
+      if (btn) {
+        btn.disabled = true;
+        btn.querySelector('span').textContent = 'Syncing...';
+      }
+
+      try {
+        const userMap = new Map(state.users.map((u) => [String(u.id), u]));
+        const candidates = new Map();
+
+        state.referrals.forEach((r) => {
+          const uid = String(r.referredUserId || r.id || '').trim();
+          const rid = String(r.referrerId || '').trim();
+          if (uid && rid) {
+            const uProf = userMap.get(uid) || {};
+            candidates.set(uid, {
+              userId: uid,
+              userName: r.referredUserName || uProf.name || `User ${uid}`,
+              referrerId: rid,
+              referrerName: r.referrerName || uProf.referrer || `User ${rid}`
+            });
+          }
+        });
+
+        state.users.forEach((u) => {
+          const uid = String(u.id || '').trim();
+          const rid = String(u.referrerId || '').trim();
+          if (uid && rid && !candidates.has(uid)) {
+            candidates.set(uid, {
+              userId: uid,
+              userName: u.name || `User ${uid}`,
+              referrerId: rid,
+              referrerName: u.referrer || `User ${rid}`
+            });
+          }
+        });
+
+        let totalCredited = 0;
+        for (const item of candidates.values()) {
+          const res = await applyReferralConditionPayout({
+            userId: item.userId,
+            userName: item.userName,
+            referrerId: item.referrerId,
+            referrerName: item.referrerName,
+            nowStr: formatNowDate()
+          });
+          totalCredited = roundMoney(totalCredited + (res.creditedNow || 0));
+        }
+
+        await logAdminAction('SYNC_REFERRALS', 'referrals', 'batch', `Synced ${candidates.size} referral records; credited ₹${totalCredited.toFixed(2)}`);
+
+        toast(
+          totalCredited > 0
+            ? `Synced ${candidates.size} referral(s) & credited ₹${totalCredited.toFixed(2)} bonus!`
+            : `All ${candidates.size} referral record(s) are up to date.`,
+          'success'
+        );
+      } catch (err) {
+        console.error('Sync referrals error:', err);
+        toast(`Sync failed: ${err.message}`, 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.querySelector('span').textContent = 'Sync Referrals';
+        }
+      }
+    }
+
     // ==================== TASKS LOGIC ====================
     function setTaskFilter(f) {
       taskFilter = f;
@@ -1081,7 +1423,8 @@
         const okSearch = !searchTerm ||
           String(s.userName || '').toLowerCase().includes(searchTerm) ||
           String(s.taskName || '').toLowerCase().includes(searchTerm) ||
-          String(s.mobile || '').includes(searchTerm);
+          String(s.mobile || '').includes(searchTerm) ||
+          String(s.customFieldValue || '').toLowerCase().includes(searchTerm);
         return okFilter && okSearch;
       });
 
@@ -1109,6 +1452,13 @@
                 <p class="text-xs text-slate-600">
                   User: <strong class="text-slate-900">${escapeHtml(s.userName || '')}</strong> (${escapeHtml(s.mobile || '-')})
                 </p>
+                ${s.customFieldValue ? `
+                  <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold bg-sky-50 text-sky-800 border border-sky-200/80">
+                    <span>${escapeHtml(s.customFieldLabel || 'Detail')}:</span>
+                    <span class="font-mono">${escapeHtml(s.customFieldValue)}</span>
+                    <button type="button" onclick="copyText('${escapeHtml(s.customFieldValue)}')" class="ml-1 px-1.5 py-0.5 rounded-md bg-white hover:bg-sky-100 text-sky-700 border border-sky-200 text-[10px] cursor-pointer">Copy</button>
+                  </div>
+                ` : ''}
                 <p class="text-[11px] text-slate-400">
                   ${escapeHtml(s.date || '')} ${s.referrer ? `• Upliner: <strong class="text-indigo-600">${escapeHtml(s.referrer)}</strong>` : ''}
                 </p>
@@ -1118,7 +1468,7 @@
 
             <div class="flex flex-wrap items-center justify-between sm:justify-end gap-2.5 pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100">
               <span class="px-3 py-1.5 rounded-full bg-emerald-500 text-white font-extrabold text-xs">
-                +₹${Number(s.reward || 0)}
+                +₹${roundMoney(s.reward)}
               </span>
               <button onclick="openProofModal('${escapeHtml(s.id)}')" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 transition cursor-pointer">
                 <i data-lucide="eye" class="w-3.5 h-3.5"></i>
@@ -1139,7 +1489,7 @@
       }).join('');
     }
 
-    // ==================== STARTED / ONGOING TASKS LOGIC ====================
+    // ==================== STARTED / ONGOING TASKS & REGISTERED USERS LOGIC ====================
     function setStartedFilter(f) {
       startedFilter = f;
       render();
@@ -1153,7 +1503,7 @@
         const st = String(ut.status || 'started').toLowerCase();
         const okFilter = startedFilter === 'All' || st === startedFilter.toLowerCase();
         const offer = state.offers.find((o) => String(o.id) === String(ut.offerId));
-        const offerName = String(ut.offerName || offer?.name || '').toLowerCase();
+        const offerName = String(ut.offerName || ut.offerSnapshot?.title || offer?.name || '').toLowerCase();
         const okSearch = !searchTerm ||
           String(ut.userId || '').toLowerCase().includes(searchTerm) ||
           String(ut.userName || '').toLowerCase().includes(searchTerm) ||
@@ -1170,7 +1520,7 @@
 
       box.innerHTML = list.map((ut) => {
         const offer = state.offers.find((o) => String(o.id) === String(ut.offerId));
-        const title = ut.offerName || offer?.name || ut.offerId || 'Task';
+        const title = ut.offerName || ut.offerSnapshot?.title || offer?.name || ut.offerId || 'Task';
         const status = ut.status || 'started';
         const isDone = String(status).toLowerCase() === 'completed';
         const isRej = String(status).toLowerCase() === 'rejected';
@@ -1209,24 +1559,261 @@
       }).join('');
     }
 
-    async function updateStartedTaskStatus(docId, nextStatus) {
+    function renderUserAccounts() {
+      const box = document.getElementById('user-accounts-container');
+      if (!box) return;
+
+      const list = state.users.filter((u) => {
+        if (!searchTerm) return true;
+        return (
+          String(u.id || '').toLowerCase().includes(searchTerm) ||
+          String(u.name || '').toLowerCase().includes(searchTerm) ||
+          String(u.handle || '').toLowerCase().includes(searchTerm) ||
+          String(u.mobile || '').includes(searchTerm) ||
+          String(u.ipAddress || '').toLowerCase().includes(searchTerm)
+        );
+      });
+
+      if (!list.length) {
+        box.innerHTML = emptyCard('No registered user profiles found');
+        return;
+      }
+
+      box.innerHTML = list.map((u) => {
+        const isSuspended = u.suspended === true;
+        const bal = roundMoney(u.balance);
+        const earned = roundMoney(u.earned);
+        const withdrawn = roundMoney(u.withdrawn);
+        return `
+          <div class="bg-white rounded-3xl p-4 sm:p-5 border ${isSuspended ? 'border-rose-300 bg-rose-50/20' : 'border-slate-200/80'} shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="space-y-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <h4 class="text-sm font-extrabold text-slate-900">${escapeHtml(u.name || 'User')}</h4>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${isSuspended ? 'bg-rose-100 text-rose-700 border border-rose-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}">
+                  ${isSuspended ? 'Suspended' : 'Active'}
+                </span>
+                ${u.handle ? `<span class="text-[11px] text-slate-500">${escapeHtml(u.handle)}</span>` : ''}
+              </div>
+              <p class="text-xs text-slate-600 font-mono">
+                ID: ${escapeHtml(u.id)} ${u.ipAddress ? `• IP: ${escapeHtml(u.ipAddress)}` : ''}
+              </p>
+              <p class="text-[11px] text-slate-500">
+                Wallet: <strong class="text-emerald-700">₹${bal.toFixed(2)}</strong> • Earned: <strong>₹${earned.toFixed(2)}</strong> • Withdrawn: <strong>₹${withdrawn.toFixed(2)}</strong>
+              </p>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <button onclick="toggleUserSuspension('${escapeHtml(u.id)}')" class="px-3.5 py-2 rounded-xl text-xs font-bold ${isSuspended ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : 'bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200'} transition cursor-pointer">
+                ${isSuspended ? 'Unsuspend Account' : 'Suspend Account'}
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function toggleUserSuspension(userId) {
+      const u = state.users.find((x) => String(x.id) === String(userId));
+      if (!u) return;
+      const nextSuspended = !(u.suspended === true);
+      const confirmMsg = nextSuspended
+        ? `Suspend user "${u.name || userId}" (${userId})? They will be blocked from withdrawals and task submissions.`
+        : `Restore active access for user "${u.name || userId}" (${userId})?`;
+      if (!window.confirm(confirmMsg)) return;
+
       try {
-        await db.collection('userTasks').doc(docId).update({ status: nextStatus, updatedAt: FieldValue.serverTimestamp() });
-        if (nextStatus === 'rejected') {
-          showRejectionAlert(`Alert: Started task record (${docId}) marked as Rejected.`);
-        } else {
-          toast(`Started task updated to ${nextStatus}`, 'success');
-        }
+        await db.collection('users').doc(String(userId)).set({
+          suspended: nextSuspended,
+          suspendedAt: nextSuspended ? FieldValue.serverTimestamp() : null
+        }, { merge: true });
+        await logAdminAction(
+          nextSuspended ? 'SUSPEND_USER' : 'UNSUSPEND_USER',
+          'users',
+          userId,
+          `${nextSuspended ? 'Suspended' : 'Unsuspended'} user ${u.name || userId}`
+        );
+        toast(`User ${u.name || userId} is now ${nextSuspended ? 'Suspended' : 'Active'}.`, nextSuspended ? 'info' : 'success');
       } catch (err) {
-        toast(`Failed to update started task: ${err.message}`, 'error');
+        toast(`Failed to update user status: ${err.message}`, 'error');
+      }
+    }
+
+    async function updateStartedTaskStatus(docId, nextStatus) {
+      const ut = state.userTasks.find((x) => x.id === docId);
+      if (!ut) return;
+
+      if (nextStatus !== 'completed') {
+        try {
+          await db.collection('userTasks').doc(docId).update({ status: nextStatus, updatedAt: FieldValue.serverTimestamp() });
+          await logAdminAction('UPDATE_USER_TASK', 'userTasks', docId, `Updated user task status to ${nextStatus}`);
+          if (nextStatus === 'rejected') {
+            showRejectionAlert(`Alert: Started task record (${docId}) marked as Rejected.`);
+          } else {
+            toast(`Started task updated to ${nextStatus}`, 'success');
+          }
+        } catch (err) {
+          toast(`Failed to update started task: ${err.message}`, 'error');
+        }
+        return;
+      }
+
+      const userIdStr = String(ut.userId || '');
+      const offerIdStr = String(ut.offerId || '');
+      const matchingSubs = state.submissions.filter(
+        (s) => String(s.userId || '') === userIdStr && String(s.taskId || '') === offerIdStr
+      );
+
+      const alreadyApprovedSub = matchingSubs.find((s) => s.status === 'Approved');
+      if (alreadyApprovedSub) {
+        try {
+          await db.collection('userTasks').doc(docId).set({
+            status: 'completed',
+            completedAt: FieldValue.serverTimestamp()
+          }, { merge: true });
+          toast('Already approved via Task Submissions — synced status without duplicate credit.', 'info');
+        } catch (err) {
+          toast(`Failed to sync status: ${err.message}`, 'error');
+        }
+        return;
+      }
+
+      const pendingSub = matchingSubs.find((s) => s.status === 'Pending');
+      if (pendingSub) {
+        await approveTask(pendingSub.id);
+        return;
+      }
+
+      const offer = state.offers.find((o) => String(o.id) === offerIdStr);
+      const userProfile = state.users.find((u) => String(u.id) === userIdStr) || {};
+      const referralRecord = state.referrals.find((r) => String(r.referredUserId || r.id) === userIdStr) || {};
+      const taskName = ut.offerName || ut.offerSnapshot?.title || offer?.name || offerIdStr || 'Offer';
+      const rewardAmt = roundMoney(ut.offerSnapshot?.reward ?? offer?.reward ?? 0);
+      const category = ut.offerSnapshot?.category || offer?.category || 'kyc';
+      const isPrime = isPrimeTaskRecord(ut.offerSnapshot || offer || { category });
+      const userName = ut.userName || userProfile.name || referralRecord.referredUserName || `User ${userIdStr}`;
+      const referrerId = userProfile.referrerId || ut.referrerId || referralRecord.referrerId || null;
+      const referrerName = userProfile.referrer || ut.referrer || referralRecord.referrerName || null;
+      const nowStr = formatNowDate();
+
+      try {
+        const existingSubsSnap = await db.collection('submissions')
+          .where('userId', '==', userIdStr)
+          .get();
+
+        const serverMatched = existingSubsSnap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .filter((d) => String(d.taskId || '') === offerIdStr);
+
+        if (serverMatched.some((d) => d.status === 'Approved')) {
+          await db.collection('userTasks').doc(docId).set({
+            status: 'completed',
+            completedAt: FieldValue.serverTimestamp()
+          }, { merge: true });
+          toast('Already approved — synced status without duplicate credit.', 'info');
+          return;
+        }
+
+        const serverPending = serverMatched.find((d) => d.status === 'Pending');
+        if (serverPending) {
+          await approveTask(serverPending.id);
+          return;
+        }
+
+        const userTaskRef = db.collection('userTasks').doc(docId);
+        const userRef = userIdStr ? db.collection('users').doc(userIdStr) : null;
+        const subRef = db.collection('submissions').doc();
+
+        const alreadyDone = await db.runTransaction(async (tx) => {
+          const snap = await tx.get(userTaskRef);
+          if (snap.exists && String(snap.data()?.status || '').toLowerCase() === 'completed') {
+            return true;
+          }
+
+          tx.set(userTaskRef, {
+            status: 'completed',
+            completedAt: FieldValue.serverTimestamp()
+          }, { merge: true });
+
+          tx.set(subRef, {
+            userId: userIdStr,
+            userName: userName,
+            taskId: offerIdStr,
+            taskName: taskName,
+            category: category,
+            isPrime: isPrime,
+            reward: rewardAmt,
+            status: 'Approved',
+            proofSummary: 'Approved via Admin / Postback',
+            referrer: referrerName,
+            referrerId: referrerId,
+            date: nowStr,
+            createdAt: FieldValue.serverTimestamp(),
+            approvedAt: FieldValue.serverTimestamp()
+          });
+
+          if (userRef && rewardAmt > 0) {
+            tx.set(userRef, {
+              balance: FieldValue.increment(rewardAmt),
+              earned: FieldValue.increment(rewardAmt)
+            }, { merge: true });
+
+            const txnRef = db.collection('transactions').doc();
+            tx.set(txnRef, {
+              userId: userIdStr,
+              category: 'earnings',
+              type: 'completed',
+              badge: 'Task',
+              amount: rewardAmt,
+              title: `₹${rewardAmt.toFixed(2)} Cashback`,
+              subtitle: `Task Reward - ${taskName}`,
+              status: 'Completed',
+              date: nowStr,
+              createdAt: FieldValue.serverTimestamp()
+            });
+          }
+
+          return false;
+        });
+
+        if (alreadyDone) {
+          toast('This task is already marked completed.', 'info');
+          return;
+        }
+
+        let refMsg = '';
+        if (referrerId) {
+          try {
+            const refRes = await applyReferralConditionPayout({
+              userId: userIdStr,
+              userName: userName,
+              referrerId: String(referrerId),
+              referrerName: referrerName,
+              currentTaskId: subRef.id,
+              currentOfferId: offerIdStr,
+              currentTaskName: taskName,
+              currentReward: rewardAmt,
+              currentIsPrime: isPrime,
+              nowStr: nowStr
+            });
+            refMsg = refRes.creditedNow > 0
+              ? ` + ₹${refRes.creditedNow} referral bonus credited!`
+              : (refRes.qualified ? '' : ` (Referral pending: ${refRes.tasksCompleted}/3 tasks)`);
+          } catch (refErr) {
+            console.warn('Referral sync warning:', refErr);
+            refMsg = ' (Click "Sync Referrals" in Refs tab if referral bonus did not update)';
+          }
+        }
+
+        await logAdminAction('COMPLETE_USER_TASK', 'userTasks', docId, `Marked "${taskName}" completed for ${userName} (+₹${rewardAmt})`);
+        toast(`Completed! Credited ₹${rewardAmt} to ${userName}${refMsg}`, 'success');
+      } catch (err) {
+        console.error('Mark completed error:', err);
+        toast(`Failed to complete task: ${err.message}`, 'error');
       }
     }
 
     async function deleteStartedTaskRecord(docId) {
-      // Started offer records are the user's My Offers history and must be retained.
       toast('User offer history cannot be deleted from the Admin Panel.', 'error');
     }
-
 
     // ==================== REFERRALS / TOP USERS ====================
     function renderReferrals() {
@@ -1251,13 +1838,11 @@
         current.count += 1;
         if (r.qualified === true || String(r.status || '').toLowerCase() === 'qualified') current.qualified += 1;
         else current.pending += 1;
-        current.commission += Number(r.commissionEarned || 0);
+        current.commission = roundMoney(current.commission + roundMoney(r.commissionEarned));
         if (r.referrerName) current.name = r.referrerName;
         grouped.set(referrerId, current);
       });
 
-      // Include user profiles with referral counters, even if detailed referral
-      // documents have not yet been created for every referred account.
       (state.users || []).forEach((u) => {
         const count = Number(u.referralsCount || 0);
         if (!count) return;
@@ -1268,13 +1853,21 @@
         });
       });
 
-      const leaders = Array.from(grouped.values()).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+      const allLeaders = Array.from(grouped.values()).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+      const leaders = !searchTerm
+        ? allLeaders
+        : allLeaders.filter((u) =>
+            String(u.name || '').toLowerCase().includes(searchTerm) ||
+            String(u.id || '').toLowerCase().includes(searchTerm) ||
+            String(u.handle || '').toLowerCase().includes(searchTerm)
+          );
+
       const total = (state.referrals || []).length;
       const totalEl = document.getElementById('referrals-total');
       if (totalEl) totalEl.textContent = `${total} referral${total === 1 ? '' : 's'}`;
 
       if (!leaders.length) {
-        leaderboardBox.innerHTML = emptyCard('No referral records found yet');
+        leaderboardBox.innerHTML = emptyCard(searchTerm ? 'No referral users match your search' : 'No referral records found yet');
       } else {
         leaderboardBox.innerHTML = leaders.map((u, index) => `
           <div class="flex items-center gap-3 p-3 rounded-2xl ${index < 3 ? 'bg-amber-50/60 border border-amber-100' : 'bg-slate-50 border border-slate-100'}">
@@ -1293,11 +1886,22 @@
         `).join('');
       }
 
-      const recent = [...(state.referrals || [])].sort((a, b) =>
-        (b.createdAt?.seconds || b.updatedAt?.seconds || 0) - (a.createdAt?.seconds || a.updatedAt?.seconds || 0)
-      );
+      const recent = [...(state.referrals || [])]
+        .filter((r) => {
+          if (!searchTerm) return true;
+          return (
+            String(r.referredUserName || '').toLowerCase().includes(searchTerm) ||
+            String(r.referredUserId || r.id || '').toLowerCase().includes(searchTerm) ||
+            String(r.referrerName || '').toLowerCase().includes(searchTerm) ||
+            String(r.referrerId || '').toLowerCase().includes(searchTerm) ||
+            String(r.status || '').toLowerCase().includes(searchTerm)
+          );
+        })
+        .sort((a, b) =>
+          (b.createdAt?.seconds || b.updatedAt?.seconds || 0) - (a.createdAt?.seconds || a.updatedAt?.seconds || 0)
+        );
       if (!recent.length) {
-        activityBox.innerHTML = emptyCard('No referral activity available');
+        activityBox.innerHTML = emptyCard(searchTerm ? 'No referral activity matches your search' : 'No referral activity available');
       } else {
         activityBox.innerHTML = recent.slice(0, 50).map((r) => `
           <div class="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl border border-slate-100">
@@ -1307,39 +1911,76 @@
             </div>
             <div class="text-right shrink-0">
               <span class="text-[10px] font-bold px-2 py-1 rounded-lg ${r.qualified || r.status === 'Qualified' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}">${escapeHtml(r.status || 'Pending')}</span>
-              <p class="text-[10px] text-slate-500 mt-1">${Number(r.tasksCompleted || 0)} tasks • ₹${Number(r.commissionEarned || 0).toFixed(2)} commission</p>
+              <p class="text-[10px] text-slate-500 mt-1">${Number(r.tasksCompleted || 0)} tasks • ₹${roundMoney(r.commissionEarned).toFixed(2)} commission</p>
             </div>
           </div>
         `).join('');
       }
     }
 
-    // ==================== WITHDRAWALS LOGIC ====================
+    // ==================== TASK APPROVAL WITH REFERRAL QUALIFICATION ====================
     async function approveTask(id) {
       const sub = state.submissions.find((s) => s.id === id);
       if (!sub || sub.status !== 'Pending') return;
 
-      const rewardAmt = Number(sub.reward || 0);
+      const rewardAmt = roundMoney(sub.reward);
       if (!Number.isFinite(rewardAmt) || rewardAmt < 0) {
         toast('Cannot approve: invalid task reward amount.', 'error');
         return;
       }
+
+      const userIdStr = String(sub.userId || '');
+      const taskIdStr = String(sub.taskId || '');
+
+      const localDuplicateApproved = userIdStr && taskIdStr && state.submissions.some(
+        (s) => s.id !== id && String(s.userId || '') === userIdStr && String(s.taskId || '') === taskIdStr && s.status === 'Approved'
+      );
+      if (localDuplicateApproved) {
+        try {
+          await db.collection('submissions').doc(id).update({
+            status: 'Rejected',
+            rejectReason: 'Duplicate submission (already approved)',
+            rejectedAt: FieldValue.serverTimestamp()
+          });
+          await logAdminAction('REJECT_DUPLICATE_SUBMISSION', 'submissions', id, `Auto-rejected duplicate submission by ${sub.userName}`);
+          toast('Duplicate submission rejected — user was already credited for this offer.', 'info');
+        } catch (err) {
+          toast(`Failed to update duplicate submission: ${err.message}`, 'error');
+        }
+        return;
+      }
+
       const nowStr = formatNowDate();
-      const refPct = Math.max(0, Math.min(100, Number(state.settings.referralPercent ?? 50) || 0));
-      const comm = Math.round((rewardAmt * refPct) / 100);
       const submissionRef = db.collection('submissions').doc(id);
-      const userRef = sub.userId ? db.collection('users').doc(sub.userId) : null;
-      const referrerRef = sub.referrerId && comm > 0 ? db.collection('users').doc(sub.referrerId) : null;
-      const userTaskRef = sub.userId && sub.taskId
-        ? db.collection('userTasks').doc(`${sub.userId}_${sub.taskId}`)
+      const userRef = userIdStr ? db.collection('users').doc(userIdStr) : null;
+      const userTaskRef = userIdStr && taskIdStr
+        ? db.collection('userTasks').doc(`${userIdStr}_${taskIdStr}`)
         : null;
-      const userTxnRef = sub.userId ? db.collection('transactions').doc() : null;
-      const refTxnRef = referrerRef ? db.collection('transactions').doc() : null;
+      const userTxnRef = userIdStr ? db.collection('transactions').doc() : null;
 
       try {
-        // All wallet changes and the Pending -> Approved transition commit together.
-        // The transaction re-reads the submission, preventing a second admin click
-        // (or another admin) from crediting the same submission twice.
+        if (userIdStr && taskIdStr) {
+          const userSubsSnap = await db.collection('submissions')
+            .where('userId', '==', userIdStr)
+            .get();
+          const alreadyPaidOffer = userSubsSnap.docs.some((d) => {
+            if (d.id === id) return false;
+            const data = d.data() || {};
+            return String(data.taskId || '') === taskIdStr && data.status === 'Approved';
+          });
+          if (alreadyPaidOffer) {
+            await submissionRef.update({
+              status: 'Rejected',
+              rejectReason: 'Duplicate submission (already approved)',
+              rejectedAt: FieldValue.serverTimestamp()
+            });
+            await logAdminAction('REJECT_DUPLICATE_SUBMISSION', 'submissions', id, `Auto-rejected duplicate submission by ${sub.userName}`);
+            closeModal('proof-modal');
+            toast('Duplicate submission rejected — user was already credited for this offer.', 'info');
+            return;
+          }
+        }
+
         const result = await db.runTransaction(async (transaction) => {
           const freshSubmission = await transaction.get(submissionRef);
           if (!freshSubmission.exists) throw new Error('Submission no longer exists.');
@@ -1347,7 +1988,6 @@
           if (freshData.status !== 'Pending') return { alreadyProcessed: true };
 
           if (userRef) await transaction.get(userRef);
-          if (referrerRef) await transaction.get(referrerRef);
 
           transaction.update(submissionRef, {
             status: 'Approved',
@@ -1356,20 +1996,20 @@
 
           if (userTaskRef) {
             transaction.set(userTaskRef, {
-              userId: sub.userId,
-              offerId: sub.taskId,
+              userId: userIdStr,
+              offerId: taskIdStr,
               status: 'completed',
               completedAt: FieldValue.serverTimestamp()
             }, { merge: true });
           }
 
-          if (userRef) {
+          if (userRef && rewardAmt > 0) {
             transaction.set(userRef, {
               balance: FieldValue.increment(rewardAmt),
               earned: FieldValue.increment(rewardAmt)
             }, { merge: true });
             transaction.set(userTxnRef, {
-              userId: sub.userId,
+              userId: userIdStr,
               category: 'earnings',
               type: 'completed',
               badge: 'Task',
@@ -1382,24 +2022,6 @@
             });
           }
 
-          if (referrerRef) {
-            transaction.set(referrerRef, {
-              balance: FieldValue.increment(comm),
-              earned: FieldValue.increment(comm)
-            }, { merge: true });
-            transaction.set(refTxnRef, {
-              userId: sub.referrerId,
-              category: 'earnings',
-              type: 'referral',
-              badge: 'Referral',
-              amount: comm,
-              title: `₹${comm.toFixed(2)} Cashback`,
-              subtitle: `${refPct}% Commission - ${sub.userName} (${sub.taskName})`,
-              status: 'Approved',
-              date: nowStr,
-              createdAt: FieldValue.serverTimestamp()
-            });
-          }
           return { alreadyProcessed: false };
         });
 
@@ -1407,8 +2029,36 @@
           toast('This submission has already been processed. Refreshing the list.', 'info');
           return;
         }
+
+        let bonusMsg = '';
+        if (userIdStr && sub.referrerId) {
+          try {
+            const refOutcome = await applyReferralConditionPayout({
+              userId: userIdStr,
+              userName: sub.userName,
+              referrerId: sub.referrerId,
+              referrerName: sub.referrer,
+              currentTaskId: id,
+              currentOfferId: taskIdStr,
+              currentTaskName: sub.taskName,
+              currentReward: rewardAmt,
+              currentIsPrime: isPrimeTaskRecord(sub),
+              nowStr: nowStr
+            });
+
+            if (refOutcome.creditedNow > 0) {
+              bonusMsg = ` + ₹${refOutcome.creditedNow} referral bonus to ${sub.referrer || sub.referrerId}`;
+            } else if (!refOutcome.qualified) {
+              bonusMsg = ` (Referral pending: ${refOutcome.tasksCompleted}/3 tasks)`;
+            }
+          } catch (refErr) {
+            console.warn('Referral sync warning after approval:', refErr);
+            bonusMsg = ' (Click "Sync Referrals" in Refs tab if referral bonus did not update)';
+          }
+        }
+
+        await logAdminAction('APPROVE_SUBMISSION', 'submissions', id, `Approved "${sub.taskName}" for ${sub.userName} (+₹${rewardAmt})${bonusMsg}`);
         closeModal('proof-modal');
-        const bonusMsg = referrerRef ? ` + ₹${comm} (${refPct}%) to ${sub.referrer || sub.referrerId}` : '';
         toast(`Approved! Credited ₹${rewardAmt} to ${sub.userName}${bonusMsg}`, 'success');
       } catch (err) {
         console.error('Approve task transaction error:', err);
@@ -1424,9 +2074,16 @@
       document.getElementById('pm-title').textContent = `${s.taskName} Proof`;
       document.getElementById('pm-sub').textContent = `Submitted by ${s.userName} • ${s.id}`;
       document.getElementById('pm-mobile').textContent = s.mobile || '-';
-      document.getElementById('pm-reward').textContent = `₹${Number(s.reward || 0)}`;
+      document.getElementById('pm-reward').textContent = `₹${roundMoney(s.reward)}`;
       document.getElementById('pm-date').textContent = s.date || '-';
       document.getElementById('pm-referrer').textContent = s.referrer || 'Direct User';
+      const customMetaHtml = s.customFieldValue
+        ? `<div class="mt-2 pt-2 border-t border-slate-800 flex items-center justify-center gap-2 text-xs">
+            <span class="text-sky-300 font-semibold">${escapeHtml(s.customFieldLabel || 'Submitted Detail')}:</span>
+            <strong class="text-white font-mono">${escapeHtml(s.customFieldValue)}</strong>
+            <button type="button" onclick="copyText('${escapeHtml(s.customFieldValue)}')" class="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 text-[10px] font-bold cursor-pointer">Copy</button>
+          </div>`
+        : '';
 
       const imgHtml = s.screenshotData
         ? `<img src="${escapeHtml(s.screenshotData)}" alt="Proof Screenshot" class="w-full max-h-72 object-contain rounded-xl border border-slate-700 bg-black mx-auto" />`
@@ -1446,6 +2103,7 @@
         <div class="pt-1 text-center">
           <p class="text-sm font-bold text-white">${escapeHtml(s.proofSummary || 'Completed')}</p>
           <p class="text-[11px] text-slate-400">Verified Mobile: ${escapeHtml(s.mobile || '-')}</p>
+          ${customMetaHtml}
         </div>
       `;
 
@@ -1453,7 +2111,7 @@
       if (s.status === 'Pending') {
         footer.innerHTML = `
           <button onclick="closeModal('proof-modal'); openReject('task', '${escapeHtml(s.id)}')" class="px-4 py-2 rounded-xl text-xs font-bold bg-rose-50 text-rose-600 hover:bg-rose-100 cursor-pointer">Reject</button>
-          <button onclick="approveTask('${escapeHtml(s.id)}')" class="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 text-white hover:bg-emerald-600 cursor-pointer">Approve &amp; Credit ₹${Number(s.reward || 0)}</button>
+          <button onclick="approveTask('${escapeHtml(s.id)}')" class="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 text-white hover:bg-emerald-600 cursor-pointer">Approve & Credit ₹${roundMoney(s.reward)}</button>
         `;
       } else {
         footer.innerHTML = `<button onclick="closeModal('proof-modal')" class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 text-white cursor-pointer">Close</button>`;
@@ -1463,6 +2121,7 @@
       if (window.lucide) lucide.createIcons();
     }
 
+    // ==================== WITHDRAWALS LOGIC ====================
     function setWdFilter(f) {
       wdFilter = f;
       render();
@@ -1508,7 +2167,7 @@
           <div class="flex items-center justify-between sm:justify-end gap-3 pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100">
             <div class="sm:text-right">
               <span class="text-[10px] uppercase tracking-wider text-slate-400 block">Amount</span>
-              <strong class="text-lg font-extrabold text-slate-900">₹${Number(w.amount || 0)}</strong>
+              <strong class="text-lg font-extrabold text-slate-900">₹${roundMoney(w.amount)}</strong>
             </div>
             ${w.status === 'Pending' ? `
               <div class="flex items-center gap-2">
@@ -1531,33 +2190,61 @@
       payCtxId = id;
       document.getElementById('pay-user').textContent = w.userName || 'User';
       document.getElementById('pay-dest').textContent = `${w.method} (${w.destination})`;
-      document.getElementById('pay-amt').textContent = `₹${Number(w.amount || 0)}`;
+      document.getElementById('pay-amt').textContent = `₹${roundMoney(w.amount)}`;
       document.getElementById('pay-utr').value = '';
       openModal('pay-modal');
     }
 
     async function confirmPay() {
       const w = state.withdrawals.find((x) => x.id === payCtxId);
-      if (!w) return;
+      if (!w || w.status !== 'Pending') return;
       const utrVal = document.getElementById('pay-utr').value.trim() || `UTR${Math.floor(100000000 + Math.random() * 899999999)}`;
+      const confirmBtn = document.getElementById('pm-confirm-btn');
+
+      if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = 'Processing...';
+      }
 
       try {
-        await db.collection('withdrawals').doc(w.id).update({
-          status: 'Paid',
-          utr: utrVal
+        const wdRef = db.collection('withdrawals').doc(w.id);
+        const userRef = w.userId ? db.collection('users').doc(w.userId) : null;
+        const amt = roundMoney(w.amount);
+
+        const result = await db.runTransaction(async (tx) => {
+          const wdSnap = await tx.get(wdRef);
+          if (!wdSnap.exists) throw new Error('Withdrawal record not found.');
+          if (wdSnap.data()?.status !== 'Pending') return { alreadyProcessed: true };
+
+          tx.update(wdRef, {
+            status: 'Paid',
+            utr: utrVal,
+            paidAt: FieldValue.serverTimestamp()
+          });
+
+          if (userRef && amt > 0) {
+            tx.set(userRef, {
+              withdrawn: FieldValue.increment(amt)
+            }, { merge: true });
+          }
+          return { alreadyProcessed: false };
         });
 
-        if (w.userId) {
-          await db.collection('users').doc(w.userId).set({
-            withdrawn: FieldValue.increment(Number(w.amount || 0))
-          }, { merge: true });
-        }
-
         closeModal('pay-modal');
-        toast(`Paid ₹${w.amount} to ${w.userName}!`, 'success');
+        if (result && result.alreadyProcessed) {
+          toast('This withdrawal has already been processed.', 'info');
+        } else {
+          await logAdminAction('PAY_WITHDRAWAL', 'withdrawals', w.id, `Paid ₹${amt} to ${w.userName} (${w.method}: ${w.destination}, UTR: ${utrVal})`);
+          toast(`Paid ₹${amt} to ${w.userName}!`, 'success');
+        }
       } catch (err) {
         console.error('Mark paid error:', err);
         toast(`Failed to update payout: ${err.message}`, 'error');
+      } finally {
+        if (confirmBtn) {
+          confirmBtn.disabled = false;
+          confirmBtn.textContent = 'Mark Paid';
+        }
       }
     }
 
@@ -1602,75 +2289,168 @@
 
     async function confirmReject() {
       if (!rejectCtx) return;
+      const ctx = { ...rejectCtx };
       const reason = document.getElementById('rm-input').value.trim() || 'Requirements not met';
+      const confirmBtn = document.getElementById('rm-confirm-btn');
+
+      if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = 'Rejecting...';
+      }
 
       try {
-        if (rejectCtx.type === 'startedTask') {
-          const userTask = state.userTasks.find((x) => x.id === rejectCtx.id);
+        if (ctx.type === 'startedTask') {
+          const userTask = state.userTasks.find((x) => x.id === ctx.id);
           if (userTask) {
-            await db.collection('userTasks').doc(userTask.id).update({
-              status: 'rejected',
-              rejectReason: reason,
-              updatedAt: FieldValue.serverTimestamp()
-            });
-            setStartedFilter('rejected');
-            showRejectionAlert(`Alert: ${userTask.userName || 'User'}'s "${userTask.offerName || userTask.offerId || 'Offer'}" moved to Rejected (${reason}).`);
-          }
-        } else if (rejectCtx.type === 'task') {
-          const s = state.submissions.find((x) => x.id === rejectCtx.id);
-          if (s) {
-            await db.collection('submissions').doc(s.id).update({
-              status: 'Rejected',
-              rejectReason: reason
-            });
+            const utRef = db.collection('userTasks').doc(userTask.id);
+            const matchingPendingSub = state.submissions.find(
+              (s) => String(s.userId || '') === String(userTask.userId || '') &&
+                     String(s.taskId || '') === String(userTask.offerId || '') &&
+                     s.status === 'Pending'
+            );
+            const subRef = matchingPendingSub ? db.collection('submissions').doc(matchingPendingSub.id) : null;
+            const txnRef = matchingPendingSub && matchingPendingSub.userId ? db.collection('transactions').doc() : null;
 
-            if (s.userId && s.taskId) {
-              await db.collection('userTasks').doc(`${s.userId}_${s.taskId}`).set({
-                userId: s.userId,
-                offerId: s.taskId,
+            const alreadyRej = await db.runTransaction(async (tx) => {
+              const snap = await tx.get(utRef);
+              if (!snap.exists) return true;
+              const curSt = String(snap.data()?.status || '').toLowerCase();
+              if (curSt === 'completed' || curSt === 'rejected') return true;
+
+              tx.update(utRef, {
                 status: 'rejected',
-                rejectReason: reason
-              }, { merge: true });
-            }
-
-            if (s.userId) {
-              await db.collection('transactions').add({
-                userId: s.userId,
-                category: 'earnings',
-                type: 'rejected',
-                badge: 'Rejected Task',
-                amount: Number(s.reward || 0),
-                title: `₹${Number(s.reward || 0).toFixed(2)} Task Attempt`,
-                subtitle: `Task Rejected - ${s.taskName} (${reason})`,
-                status: 'Rejected',
-                date: formatNowDate(),
-                createdAt: FieldValue.serverTimestamp()
+                rejectReason: reason,
+                updatedAt: FieldValue.serverTimestamp()
               });
-            }
 
-            setTaskFilter('Rejected');
-            showRejectionAlert(`Alert: ${s.userName || 'User'}'s "${s.taskName || 'Task'}" submission moved to Rejected (${reason}).`);
+              if (subRef) {
+                const subSnap = await tx.get(subRef);
+                if (subSnap.exists && subSnap.data()?.status === 'Pending') {
+                  tx.update(subRef, {
+                    status: 'Rejected',
+                    rejectReason: reason,
+                    rejectedAt: FieldValue.serverTimestamp()
+                  });
+                  if (txnRef) {
+                    tx.set(txnRef, {
+                      userId: matchingPendingSub.userId,
+                      category: 'earnings',
+                      type: 'rejected',
+                      badge: 'Rejected Task',
+                      amount: roundMoney(matchingPendingSub.reward),
+                      title: `₹${roundMoney(matchingPendingSub.reward).toFixed(2)} Task Attempt`,
+                      subtitle: `Task Rejected - ${matchingPendingSub.taskName} (${reason})`,
+                      status: 'Rejected',
+                      date: formatNowDate(),
+                      createdAt: FieldValue.serverTimestamp()
+                    });
+                  }
+                }
+              }
+              return false;
+            });
+            if (alreadyRej) {
+              toast('This task record has already been updated.', 'info');
+            } else {
+              await logAdminAction('REJECT_USER_TASK', 'userTasks', userTask.id, `Rejected "${userTask.offerName || userTask.offerId}" for ${userTask.userName || userTask.userId}: ${reason}`);
+              setStartedFilter('rejected');
+              showRejectionAlert(`Alert: ${userTask.userName || 'User'}'s "${userTask.offerName || userTask.offerId || 'Offer'}" moved to Rejected (${reason}).`);
+            }
+          }
+        } else if (ctx.type === 'task') {
+          const s = state.submissions.find((x) => x.id === ctx.id);
+          if (s) {
+            const subRef = db.collection('submissions').doc(s.id);
+            const utRef = s.userId && s.taskId ? db.collection('userTasks').doc(`${s.userId}_${s.taskId}`) : null;
+            const txnRef = s.userId ? db.collection('transactions').doc() : null;
+
+            const alreadyProcessed = await db.runTransaction(async (tx) => {
+              const snap = await tx.get(subRef);
+              if (!snap.exists || snap.data()?.status !== 'Pending') return true;
+
+              tx.update(subRef, {
+                status: 'Rejected',
+                rejectReason: reason,
+                rejectedAt: FieldValue.serverTimestamp()
+              });
+
+              if (utRef) {
+                tx.set(utRef, {
+                  userId: s.userId,
+                  offerId: s.taskId,
+                  status: 'rejected',
+                  rejectReason: reason
+                }, { merge: true });
+              }
+
+              if (txnRef) {
+                tx.set(txnRef, {
+                  userId: s.userId,
+                  category: 'earnings',
+                  type: 'rejected',
+                  badge: 'Rejected Task',
+                  amount: roundMoney(s.reward),
+                  title: `₹${roundMoney(s.reward).toFixed(2)} Task Attempt`,
+                  subtitle: `Task Rejected - ${s.taskName} (${reason})`,
+                  status: 'Rejected',
+                  date: formatNowDate(),
+                  createdAt: FieldValue.serverTimestamp()
+                });
+              }
+              return false;
+            });
+
+            if (alreadyProcessed) {
+              toast('This submission has already been processed.', 'info');
+            } else {
+              await logAdminAction('REJECT_SUBMISSION', 'submissions', s.id, `Rejected "${s.taskName}" for ${s.userName}: ${reason}`);
+              setTaskFilter('Rejected');
+              showRejectionAlert(`Alert: ${s.userName || 'User'}'s "${s.taskName || 'Task'}" submission moved to Rejected (${reason}).`);
+            }
           }
         } else {
-          const w = state.withdrawals.find((x) => x.id === rejectCtx.id);
+          const w = state.withdrawals.find((x) => x.id === ctx.id);
           if (w) {
-            await db.collection('withdrawals').doc(w.id).update({
-              status: 'Rejected',
-              rejectReason: reason
+            const wdRef = db.collection('withdrawals').doc(w.id);
+            const userRef = w.userId ? db.collection('users').doc(w.userId) : null;
+            const refundAmt = roundMoney(w.amount);
+
+            const alreadyProcessed = await db.runTransaction(async (tx) => {
+              const snap = await tx.get(wdRef);
+              if (!snap.exists || snap.data()?.status !== 'Pending') return true;
+
+              tx.update(wdRef, {
+                status: 'Rejected',
+                rejectReason: reason,
+                rejectedAt: FieldValue.serverTimestamp()
+              });
+
+              if (userRef && refundAmt > 0) {
+                tx.set(userRef, {
+                  balance: FieldValue.increment(refundAmt)
+                }, { merge: true });
+              }
+              return false;
             });
 
-            if (w.userId) {
-              await db.collection('users').doc(w.userId).set({
-                balance: FieldValue.increment(Number(w.amount || 0))
-              }, { merge: true });
+            if (alreadyProcessed) {
+              toast('This withdrawal has already been processed.', 'info');
+            } else {
+              await logAdminAction('REJECT_WITHDRAWAL', 'withdrawals', w.id, `Rejected & refunded ₹${refundAmt} to ${w.userName}: ${reason}`);
+              toast(`Rejected & refunded ₹${refundAmt} to ${w.userName}.`, 'info');
             }
-            toast(`Rejected & refunded ₹${w.amount} to ${w.userName}.`, 'info');
           }
         }
+        rejectCtx = null;
         closeModal('reject-modal');
       } catch (err) {
         console.error('Reject error:', err);
         toast(`Action failed: ${err.message}`, 'error');
+      } finally {
+        if (confirmBtn) {
+          confirmBtn.disabled = false;
+          confirmBtn.textContent = 'Confirm Reject';
+        }
       }
     }
 
@@ -1721,8 +2501,9 @@
                       ${isKyc ? 'KYC' : 'NON-KYC'}
                     </span>
                     ${o.primeBadge ? `<span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-amber-50 text-amber-700 border border-amber-200/80">Prime</span>` : ''}
-                    ${o.collectMobile ? `<span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-sky-50 text-sky-700 border border-sky-200/80">Mobile</span>` : ''}
-                    ${o.allowProofSubmission ? `<span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-violet-50 text-violet-700 border border-violet-200/80">Proof Optional</span>` : ''}
+                    ${o.collectMobile ? `<span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-sky-50 text-sky-700 border border-sky-200/80">Mobile Req</span>` : ''}
+                    ${o.allowProofSubmission ? `<span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-violet-50 text-violet-700 border border-violet-200/80">Proof Req</span>` : ''}
+                    ${o.customFieldLabel ? `<span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-cyan-50 text-cyan-800 border border-cyan-200/80">${escapeHtml(o.customFieldLabel)}</span>` : ''}
                     ${hasStartCap ? `<span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-amber-50 text-amber-800 border border-amber-200/80">Cap ${startedCount}/${o.maxStartedUsers}</span>` : ''}
                   </div>
                   <h4 class="text-base font-extrabold text-slate-900 mt-0.5 truncate">${escapeHtml(o.name)}</h4>
@@ -1730,7 +2511,7 @@
                 </div>
               </div>
               <span class="px-3.5 py-1.5 rounded-full bg-emerald-500 text-white font-extrabold text-xs shrink-0">
-                +₹${Number(o.reward || 0)}
+                +₹${roundMoney(o.reward)}
               </span>
             </div>
 
@@ -1762,6 +2543,7 @@
           active: nextActive,
           autoRemovedByStarts: nextActive ? false : o.autoRemovedByStarts
         });
+        await logAdminAction('TOGGLE_OFFER', 'offers', id, `Set offer "${o.name}" to ${nextActive ? 'Live' : 'Paused'}`);
         toast(`${o.name} is now ${nextActive ? 'Live' : 'Paused'}`, 'info');
       } catch (err) {
         toast(`Failed to toggle offer: ${err.message}`, 'error');
@@ -1780,8 +2562,8 @@
       if (!window.confirm(message)) return;
 
       try {
-        // Remove only the public offer. Never delete userTasks or submission records here.
         await db.collection('offers').doc(id).delete();
+        await logAdminAction('DELETE_OFFER', 'offers', id, `Deleted offer "${offer.name}" (preserved ${startedCount} user records)`);
         toast(startedCount > 0
           ? `Offer removed from Active Offers. ${startedCount} started user record(s) were preserved.`
           : 'Offer removed from Active Offers.', 'success');
@@ -1872,6 +2654,7 @@
         document.getElementById('om-max-started-users').value = o.maxStartedUsers || '';
         document.getElementById('om-collect-mobile').checked = Boolean(o.collectMobile);
         document.getElementById('om-allow-proof').checked = Boolean(o.allowProofSubmission ?? o.requireProof);
+        document.getElementById('om-custom-field-label').value = o.customFieldLabel || '';
         updateOfferLogoPreview(o.logo || '');
       } else {
         document.getElementById('om-title').textContent = 'Add New Offer';
@@ -1886,6 +2669,7 @@
         document.getElementById('om-max-started-users').value = '';
         document.getElementById('om-collect-mobile').checked = false;
         document.getElementById('om-allow-proof').checked = false;
+        document.getElementById('om-custom-field-label').value = '';
         updateOfferLogoPreview('');
       }
       toggleMaxStartsInput();
@@ -1896,10 +2680,20 @@
       e.preventDefault();
       const id = document.getElementById('om-id').value;
       const btn = document.getElementById('om-save-btn');
+      const offerName = document.getElementById('om-name').value.trim();
+      const rewardVal = roundMoney(document.getElementById('om-reward').value);
       const autoRemoveByStarts = document.getElementById('om-auto-remove-starts').checked;
       const rawMaxStarts = Number(document.getElementById('om-max-started-users').value || 0);
       const maxStartedUsers = autoRemoveByStarts && rawMaxStarts > 0 ? rawMaxStarts : null;
 
+      if (!offerName) {
+        toast('Please enter an Offer Name.', 'error');
+        return;
+      }
+      if (!Number.isFinite(rewardVal) || rewardVal <= 0) {
+        toast('Please enter a valid Reward amount greater than ₹0.', 'error');
+        return;
+      }
       if (autoRemoveByStarts && !maxStartedUsers) {
         toast('Please enter a valid number of started users (1 or more).', 'error');
         return;
@@ -1908,18 +2702,25 @@
       btn.disabled = true;
       btn.textContent = 'Saving...';
 
+      const isPrime = document.getElementById('om-prime-badge').checked;
+      const collectMobile = document.getElementById('om-collect-mobile').checked;
+      const allowProof = document.getElementById('om-allow-proof').checked;
+
       const payload = {
-        name: document.getElementById('om-name').value.trim(),
+        name: offerName,
         subtitle: document.getElementById('om-sub').value.trim(),
         category: document.getElementById('om-cat').value,
-        reward: Number(document.getElementById('om-reward').value || 0),
+        reward: rewardVal,
         url: document.getElementById('om-url').value.trim(),
         logo: document.getElementById('om-logo-data').value || '',
-        primeBadge: document.getElementById('om-prime-badge').checked,
+        primeBadge: isPrime,
+        isPrime: isPrime,
         autoRemoveByStarts,
         maxStartedUsers,
-        collectMobile: document.getElementById('om-collect-mobile').checked,
-        allowProofSubmission: document.getElementById('om-allow-proof').checked,
+        collectMobile: collectMobile,
+        allowProofSubmission: allowProof,
+        requireProof: allowProof,
+        customFieldLabel: document.getElementById('om-custom-field-label').value.trim(),
         steps: document.getElementById('om-steps').value.split('\n').map((x) => x.trim()).filter(Boolean)
       };
 
@@ -1933,17 +2734,36 @@
             payload.autoRemovedByStarts = false;
           }
           await db.collection('offers').doc(id).update(payload);
-          toast(`Updated ${payload.name || 'offer'}`, 'success');
+          await logAdminAction('EDIT_OFFER', 'offers', id, `Updated offer "${payload.name}" (₹${payload.reward})`);
+          toast(`Updated ${payload.name}`, 'success');
         } else {
-          await db.collection('offers').add({
+          const docRef = await db.collection('offers').add({
             active: true,
             startedCount: 0,
             autoRemovedByStarts: false,
             createdAt: FieldValue.serverTimestamp(),
             ...payload
           });
-          toast(`Added ${payload.name || 'offer'} (+₹${payload.reward})`, 'success');
+          await logAdminAction('CREATE_OFFER', 'offers', docRef.id, `Created offer "${payload.name}" (+₹${payload.reward})`);
+          toast(`Added ${payload.name} (+₹${payload.reward})`, 'success');
         }
+
+        const settingPatch = {};
+        if (collectMobile && state.settings.allowMobileNumber !== true) {
+          settingPatch.allowMobileNumber = true;
+        }
+        if (allowProof && state.settings.allowProofSubmission !== true) {
+          settingPatch.allowProofSubmission = true;
+        }
+        if (isPrime && state.settings.allowPrimeBadge !== true) {
+          settingPatch.allowPrimeBadge = true;
+        }
+        if (Object.keys(settingPatch).length > 0) {
+          await db.collection('settings').doc('app').set(settingPatch, { merge: true });
+          state.settings = { ...state.settings, ...settingPatch };
+          populateSettingsForm();
+        }
+
         closeModal('offer-modal');
       } catch (err) {
         console.error('Save offer error:', err);
@@ -1963,6 +2783,8 @@
           reward: 200,
           url: 'https://angel-one.onelink.me/techyreward',
           active: true,
+          primeBadge: true,
+          isPrime: true,
           autoRemoveByStarts: false,
           maxStartedUsers: null,
           steps: ['Open link and complete Aadhaar KYC verification.', 'Account must be activated successfully.', 'Submit Client ID / Mobile Number in My Offers.']
@@ -1974,6 +2796,8 @@
           reward: 200,
           url: 'https://upstox.com/open-demat/?ref=techy',
           active: true,
+          primeBadge: true,
+          isPrime: true,
           autoRemoveByStarts: false,
           maxStartedUsers: null,
           steps: ['Complete signup process via PAN & Aadhaar.', 'Submit registered mobile number in My Offers tab.']
@@ -1985,6 +2809,8 @@
           reward: 10,
           url: 'https://example.com/offer1',
           active: true,
+          primeBadge: false,
+          isPrime: false,
           autoRemoveByStarts: false,
           maxStartedUsers: null,
           steps: ['Register with your active mobile number.', 'Complete your profile survey completely.', 'Submit registered mobile number & proof screenshot in My Offers.']
@@ -1995,6 +2821,7 @@
         for (const item of defaults) {
           await db.collection('offers').add({ ...item, createdAt: FieldValue.serverTimestamp() });
         }
+        await logAdminAction('SEED_OFFERS', 'offers', 'batch', 'Seeded 3 default offers');
         toast('Seeded 3 default offers to Firestore!', 'success');
       } catch (err) {
         toast(`Seed failed: ${err.message}`, 'error');
@@ -2075,6 +2902,7 @@
     async function resolveTicket(id) {
       try {
         await db.collection('tickets').doc(id).update({ status: 'Resolved' });
+        await logAdminAction('RESOLVE_TICKET', 'tickets', id, `Marked support ticket ${id} resolved`);
         toast('Support ticket marked resolved', 'success');
       } catch (err) {
         toast(`Failed to resolve ticket: ${err.message}`, 'error');
@@ -2087,29 +2915,73 @@
       document.getElementById('set-ref-pct').value = state.settings.referralPercent;
       document.getElementById('set-tg-channel').value = state.settings.telegramChannel;
       document.getElementById('set-tg-support').value = state.settings.supportLink;
-      document.getElementById('set-admin-email').value = state.settings.adminEmail || 'sec-adminduniya77@gmail.com';
+      document.getElementById('set-admin-email').value = ALLOWED_ADMIN_EMAIL;
       document.getElementById('set-allow-mobile').checked = state.settings.allowMobileNumber === true;
       document.getElementById('set-allow-proof').checked = state.settings.allowProofSubmission === true;
+      document.getElementById('set-allow-prime-badge').checked = state.settings.allowPrimeBadge === true;
     }
 
     async function saveAppSettings(e) {
       e.preventDefault();
+      const minWdVal = Math.max(1, roundMoney(document.getElementById('set-min-wd').value || 50));
+      const refPctVal = Math.max(0, Math.min(100, roundMoney(document.getElementById('set-ref-pct').value ?? 50)));
       const updated = {
-        minWithdrawal: Number(document.getElementById('set-min-wd').value || 50),
-        referralPercent: Number(document.getElementById('set-ref-pct').value || 50),
+        minWithdrawal: minWdVal,
+        referralPercent: refPctVal,
         telegramChannel: document.getElementById('set-tg-channel').value.trim(),
         supportLink: document.getElementById('set-tg-support').value.trim(),
-        adminEmail: document.getElementById('set-admin-email').value.trim() || 'sec-adminduniya77@gmail.com',
+        adminEmail: ALLOWED_ADMIN_EMAIL,
         allowMobileNumber: document.getElementById('set-allow-mobile').checked,
-        allowProofSubmission: document.getElementById('set-allow-proof').checked
+        allowProofSubmission: document.getElementById('set-allow-proof').checked,
+        allowPrimeBadge: document.getElementById('set-allow-prime-badge').checked
       };
       try {
         await db.collection('settings').doc('app').set(updated, { merge: true });
         state.settings = { ...state.settings, ...updated };
+        await logAdminAction('UPDATE_SETTINGS', 'settings', 'app', `Updated app settings (Min WD: ₹${minWdVal}, Ref %: ${refPctVal}%)`);
         toast('App settings saved to Firestore!', 'success');
       } catch (err) {
         toast(`Failed to save settings: ${err.message}`, 'error');
       }
+    }
+
+    // ==================== ADMIN AUDIT LOGS VIEW ====================
+    function renderAdminLogs() {
+      const box = document.getElementById('admin-logs-container');
+      const badge = document.getElementById('logs-total-badge');
+      if (!box) return;
+
+      const filtered = state.adminLogs.filter((log) => {
+        if (!searchTerm) return true;
+        return (
+          String(log.action || '').toLowerCase().includes(searchTerm) ||
+          String(log.details || '').toLowerCase().includes(searchTerm) ||
+          String(log.targetId || '').toLowerCase().includes(searchTerm)
+        );
+      });
+
+      if (badge) badge.textContent = `${filtered.length} action${filtered.length === 1 ? '' : 's'}`;
+
+      if (!filtered.length) {
+        box.innerHTML = emptyCard('No admin activity logs recorded yet');
+        return;
+      }
+
+      box.innerHTML = filtered.map((log) => `
+        <div class="p-3.5 rounded-2xl border border-slate-200/80 bg-slate-50/60 flex flex-wrap items-center justify-between gap-2">
+          <div class="min-w-0 space-y-0.5">
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-slate-900 text-white">${escapeHtml(log.action || 'ACTION')}</span>
+              <span class="text-[11px] font-mono text-slate-500">${escapeHtml(log.targetType || '')}/${escapeHtml(log.targetId || '')}</span>
+            </div>
+            <p class="text-xs font-semibold text-slate-800">${escapeHtml(log.details || '')}</p>
+          </div>
+          <div class="text-right shrink-0">
+            <span class="text-[11px] text-slate-500 block">${escapeHtml(log.date || '')}</span>
+            <span class="text-[10px] text-slate-400 block">${escapeHtml(log.adminEmail || ALLOWED_ADMIN_EMAIL)}</span>
+          </div>
+        </div>
+      `).join('');
     }
 
     // ==================== HELPERS ====================
@@ -2122,11 +2994,11 @@
 
     function escapeHtml(str) {
       return String(str ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
+        .replace(/&/g, '&')
+        .replace(/</g, '<')
+        .replace(/>/g, '>')
+        .replace(/"/g, '"')
+        .replace(/'/g, ''');
     }
 
     function statusPill(status) {
@@ -2193,14 +3065,17 @@
     window.addEventListener('DOMContentLoaded', () => {
       populateSettingsForm();
       render();
-      auth.onAuthStateChanged((user) => {
-        if (user) {
+      auth.onAuthStateChanged(async (user) => {
+        if (isAuthorizedAdminUser(user)) {
           document.getElementById('lock-screen').classList.add('hidden');
           if (!listenersStarted) {
             listenersStarted = true;
             startFirestoreListeners();
           }
         } else {
+          if (user) {
+            try { await auth.signOut(); } catch (_) {}
+          }
           document.getElementById('lock-screen').classList.remove('hidden');
         }
       });
