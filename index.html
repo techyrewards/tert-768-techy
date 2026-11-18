@@ -296,6 +296,26 @@
           <button onclick="setStartedFilter('rejected')" id="sfilter-rejected" class="sfilter-btn px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer">Rejected</button>
         </div>
       </div>
+      <!-- Quick Aff Click ID Matcher -->
+      <div class="bg-white rounded-3xl p-4 border border-slate-200/80 shadow-2xs space-y-2.5">
+        <div class="flex flex-col sm:flex-row gap-2">
+          <input
+            type="text"
+            id="aff-lookup-input"
+            placeholder="Paste aff_click_id (e.g., u_123__o_abc__1700000000)..."
+            class="flex-1 px-3.5 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 font-mono"
+          />
+          <button
+            type="button"
+            onclick="runAffClickLookup()"
+            class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white transition cursor-pointer shrink-0"
+          >
+            Match User
+          </button>
+        </div>
+        <div id="aff-lookup-result" class="text-xs text-slate-500"></div>
+      </div>
+
       <div id="started-container" class="space-y-3"></div>
       <div id="user-accounts-container" class="hidden space-y-3"></div>
     </section>
@@ -758,7 +778,8 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
       referrals: [],
       users: [],
       tickets: [],
-      adminLogs: []
+      adminLogs: [],
+      offerClicks: []
     };
 
     let currentTab = 'tasks';
@@ -992,6 +1013,13 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
           .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
         render();
       }, (err) => console.warn('Admin logs listener:', err.message));
+
+      db.collection('offerClicks').limit(200).onSnapshot((snap) => {
+        state.offerClicks = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+        render();
+      }, (err) => console.warn('Offer clicks listener:', err.message));
     }
 
     // ==================== EMAIL & PASSWORD LOGIN (FIREBASE AUTH) ====================
@@ -2988,6 +3016,109 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
           </div>
         </div>
       `).join('');
+    }
+
+    // ==================== NEXOFFERS CLICK TRACKING & USER LOOKUP ====================
+    function buildNexOfferTrackingLink(baseUrl, userId, offerId) {
+      const cleanBase = String(baseUrl || '').trim();
+      const affClickId = `u_${encodeURIComponent(String(userId))}__o_${encodeURIComponent(String(offerId))}__${Date.now()}`;
+      if (!cleanBase) {
+        return { affClickId, url: '' };
+      }
+      if (cleanBase.includes('{aff_click_id}')) {
+        return { affClickId, url: cleanBase.replace('{aff_click_id}', encodeURIComponent(affClickId)) };
+      }
+      if (cleanBase.includes('{click_id}')) {
+        return { affClickId, url: cleanBase.replace('{click_id}', encodeURIComponent(affClickId)) };
+      }
+      if (cleanBase.endsWith('aff_click_id=')) {
+        return { affClickId, url: `${cleanBase}${encodeURIComponent(affClickId)}` };
+      }
+      const sep = cleanBase.includes('?') ? '&' : '?';
+      return { affClickId, url: `${cleanBase}${sep}aff_click_id=${encodeURIComponent(affClickId)}` };
+    }
+
+    async function trackOfferClickAndOpen({ baseUrl, userId, userName, offerId, offerName }) {
+      const { affClickId, url } = buildNexOfferTrackingLink(baseUrl, userId, offerId);
+      await db.collection('offerClicks').doc(affClickId).set({
+        affClickId,
+        userId: String(userId || ''),
+        userName: String(userName || ''),
+        offerId: String(offerId || ''),
+        offerName: String(offerName || ''),
+        status: 'clicked',
+        date: formatNowDate(),
+        createdAt: FieldValue.serverTimestamp()
+      });
+      if (url) {
+        window.open(url, '_blank');
+      }
+      return { affClickId, url };
+    }
+
+    function runAffClickLookup() {
+      const input = document.getElementById('aff-lookup-input');
+      const out = document.getElementById('aff-lookup-result');
+      if (!input || !out) return;
+
+      const res = lookupUserByAffClickId(input.value);
+      if (!res) {
+        out.innerHTML = `<span class="text-rose-600 font-semibold">No matching user found for that Click ID.</span>`;
+        return;
+      }
+
+      out.innerHTML = `
+        <div class="flex flex-wrap items-center justify-between gap-2 bg-emerald-50/70 border border-emerald-200/80 rounded-xl px-3 py-2 text-slate-800">
+          <div>
+            <strong>User:</strong> ${escapeHtml(res.userName || '-')}
+            <span class="mx-1.5 text-slate-400">•</span>
+            <strong>ID:</strong> <span class="font-mono">${escapeHtml(res.userId || '-')}</span>
+            <span class="mx-1.5 text-slate-400">•</span>
+            <strong>Offer:</strong> ${escapeHtml(res.offerName || res.offerId || '-')}
+          </div>
+          <button
+            type="button"
+            onclick="copyText('${escapeHtml(res.userId || '')}')"
+            class="px-2.5 py-1 rounded-lg bg-white hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[11px] font-bold cursor-pointer"
+          >
+            Copy ID
+          </button>
+        </div>
+      `;
+    }
+
+    function lookupUserByAffClickId(affClickId) {
+      const cleanId = String(affClickId || '').trim();
+      if (!cleanId) return null;
+      const fromDoc = (state.offerClicks || []).find(
+        (c) => String(c.affClickId || c.id || '') === cleanId
+      );
+      if (fromDoc) {
+        return {
+          affClickId: cleanId,
+          userId: String(fromDoc.userId || ''),
+          userName: String(fromDoc.userName || ''),
+          offerId: String(fromDoc.offerId || ''),
+          offerName: String(fromDoc.offerName || ''),
+          status: fromDoc.status || 'clicked'
+        };
+      }
+      const match = cleanId.match(/^u_([^_]+)__o_([^_]+)__/);
+      if (match) {
+        const uid = decodeURIComponent(match[1]);
+        const oid = decodeURIComponent(match[2]);
+        const prof = (state.users || []).find((u) => String(u.id) === uid);
+        const off = (state.offers || []).find((o) => String(o.id) === oid);
+        return {
+          affClickId: cleanId,
+          userId: uid,
+          userName: prof?.name || `User ${uid}`,
+          offerId: oid,
+          offerName: off?.name || oid,
+          status: 'parsed'
+        };
+      }
+      return null;
     }
 
     // ==================== HELPERS ====================
