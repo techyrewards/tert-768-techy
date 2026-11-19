@@ -302,7 +302,7 @@
           <input
             type="text"
             id="aff-lookup-input"
-            placeholder="Paste aff_click_id (e.g., u_123__o_abc__1700000000)..."
+            placeholder="Paste p1 / aff_click_id (u_123__o_abc__1700000000) or User ID..."
             class="flex-1 px-3.5 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 font-mono"
           />
           <button
@@ -1264,11 +1264,7 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
         return { creditedNow: 0, qualified: false, tasksCompleted: 0 };
       }
 
-      const targetOfferId = currentOfferId || currentTaskId;
-      const offerObj = state.offers.find((o) => String(o.id) === String(targetOfferId));
-      if (offerObj?.noReferralCommission === true) {
-        return { creditedNow: 0, qualified: false, tasksCompleted: 0, skippedOffer: true };
-      }
+
 
       const refPct = Math.max(0, Math.min(100, Number(state.settings.referralPercent ?? 50) || 0));
 
@@ -2848,6 +2844,21 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
           autoRemoveByStarts: false,
           maxStartedUsers: null,
           steps: ['Register with your active mobile number.', 'Complete your profile survey completely.', 'Submit registered mobile number & proof screenshot in My Offers.']
+        },
+        {
+          name: 'Open Free Demat Account (EarnIndia)',
+          subtitle: 'Complete Demat Account Opening',
+          category: 'kyc',
+          reward: 120,
+          url: 'https://panel.earnindia.io/click/?campaign_id=5&pub_id=SAQgVMm8xQ',
+          active: true,
+          primeBadge: true,
+          isPrime: true,
+          autoRemoveByStarts: false,
+          maxStartedUsers: null,
+          collectMobile: false,
+          allowProofSubmission: false,
+          steps: ['Open link and complete Demat account registration.', 'Finish required verification steps.', 'Reward will be credited after confirmation.']
         }
       ];
 
@@ -3018,7 +3029,41 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
       `).join('');
     }
 
-    // ==================== NEXOFFERS CLICK TRACKING & USER LOOKUP ====================
+    // ==================== SEAMLESS REDIRECT SCREEN & CLICK TRACKING ====================
+    function showRedirectingOverlay(destinationUrl, label = 'Redirecting...') {
+      let overlay = document.getElementById('redirect-screen-overlay');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'redirect-screen-overlay';
+        overlay.className = 'fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4';
+        overlay.innerHTML = `
+          <div class="bg-white rounded-3xl max-w-xs w-full p-6 text-center shadow-2xl border border-slate-100 space-y-3 animate-modal">
+            <div class="w-11 h-11 rounded-full border-4 border-amber-100 border-t-amber-500 animate-spin mx-auto"></div>
+            <h3 id="redirect-overlay-title" class="text-base font-extrabold text-slate-900">Redirecting...</h3>
+            <p class="text-xs text-slate-500 leading-relaxed">Please wait while we prepare your destination.</p>
+          </div>
+        `;
+        document.body.appendChild(overlay);
+      }
+      const titleEl = document.getElementById('redirect-overlay-title');
+      if (titleEl) titleEl.textContent = label;
+      overlay.classList.remove('hidden');
+      overlay.classList.add('flex');
+
+      setTimeout(() => {
+        if (!destinationUrl) return;
+        const win = window.open(destinationUrl, '_blank', 'noopener,noreferrer');
+        if (!win) {
+          window.location.href = destinationUrl;
+        }
+        setTimeout(() => {
+          overlay.classList.add('hidden');
+          overlay.classList.remove('flex');
+        }, 1200);
+      }, 250);
+    }
+
+    // ==================== NEXOFFERS / EARNINDIA CLICK TRACKING & USER LOOKUP ====================
     function buildNexOfferTrackingLink(baseUrl, userId, offerId) {
       const cleanBase = String(baseUrl || '').trim();
       const affClickId = `u_${encodeURIComponent(String(userId))}__o_${encodeURIComponent(String(offerId))}__${Date.now()}`;
@@ -3031,11 +3076,44 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
       if (cleanBase.includes('{click_id}')) {
         return { affClickId, url: cleanBase.replace('{click_id}', encodeURIComponent(affClickId)) };
       }
+      if (cleanBase.includes('{p1}')) {
+        return { affClickId, url: cleanBase.replace('{p1}', encodeURIComponent(affClickId)) };
+      }
+      if (cleanBase.includes('panel.earnindia.io/click')) {
+        const sep = cleanBase.includes('?') ? '&' : '?';
+        return { affClickId, url: `${cleanBase}${sep}p1=${encodeURIComponent(affClickId)}` };
+      }
       if (cleanBase.endsWith('aff_click_id=')) {
         return { affClickId, url: `${cleanBase}${encodeURIComponent(affClickId)}` };
       }
       const sep = cleanBase.includes('?') ? '&' : '?';
       return { affClickId, url: `${cleanBase}${sep}aff_click_id=${encodeURIComponent(affClickId)}` };
+    }
+
+    // ==================== USER APP OFFER CLICK HANDLER ====================
+    // Reusable helper for user-side offer buttons/cards so users see a clean
+    // "Redirecting... Please wait while we prepare your destination." card
+    // while tracking click & IDs in the background.
+    async function handleUserOfferClick({ baseUrl, userId, userName, offerId, offerName, label = 'Redirecting...' }) {
+      const { affClickId, url } = buildNexOfferTrackingLink(baseUrl, userId, offerId);
+      try {
+        await db.collection('offerClicks').doc(affClickId).set({
+          affClickId,
+          userId: String(userId || ''),
+          userName: String(userName || ''),
+          offerId: String(offerId || ''),
+          offerName: String(offerName || ''),
+          status: 'clicked',
+          date: formatNowDate(),
+          createdAt: FieldValue.serverTimestamp()
+        });
+      } catch (err) {
+        console.warn('offerClicks log warning:', err?.message || err);
+      }
+      if (url) {
+        showRedirectingOverlay(url, label);
+      }
+      return { affClickId, url };
     }
 
     async function trackOfferClickAndOpen({ baseUrl, userId, userName, offerId, offerName }) {
@@ -3051,7 +3129,7 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
         createdAt: FieldValue.serverTimestamp()
       });
       if (url) {
-        window.open(url, '_blank');
+        showRedirectingOverlay(url, 'Redirecting...');
       }
       return { affClickId, url };
     }
@@ -3061,28 +3139,91 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
       const out = document.getElementById('aff-lookup-result');
       if (!input || !out) return;
 
-      const res = lookupUserByAffClickId(input.value);
+      const rawVal = input.value.trim();
+      let res = lookupUserByAffClickId(rawVal);
+
+      // Also support direct User ID or exact userTasks doc ID lookup for manual matching
+      if (!res && rawVal) {
+        const directUser = (state.users || []).find((u) => String(u.id) === rawVal);
+        if (directUser) {
+          res = {
+            affClickId: rawVal,
+            userId: String(directUser.id),
+            userName: directUser.name || `User ${directUser.id}`,
+            offerId: '',
+            offerName: '',
+            status: 'direct-user'
+          };
+        }
+      }
+
       if (!res) {
-        out.innerHTML = `<span class="text-rose-600 font-semibold">No matching user found for that Click ID.</span>`;
+        out.innerHTML = `<span class="text-rose-600 font-semibold">No matching user found for that Click ID or User ID.</span>`;
         return;
       }
 
+      const matchingTasks = (state.userTasks || []).filter((ut) => {
+        const sameUser = String(ut.userId || '') === String(res.userId);
+        const sameOffer = !res.offerId || String(ut.offerId || '') === String(res.offerId);
+        return sameUser && sameOffer;
+      });
+
+      const tasksHtml = matchingTasks.length
+        ? `<div class="mt-2 pt-2 border-t border-emerald-200/70 space-y-1.5">
+            ${matchingTasks.map((ut) => {
+              const offer = state.offers.find((o) => String(o.id) === String(ut.offerId));
+              const tTitle = ut.offerName || ut.offerSnapshot?.title || offer?.name || ut.offerId || 'Offer';
+              const st = String(ut.status || 'started').toLowerCase();
+              const isDone = st === 'completed';
+              const isRej = st === 'rejected';
+              return `
+                <div class="flex flex-wrap items-center justify-between gap-2 bg-white/90 rounded-lg px-2.5 py-1.5 border border-emerald-100">
+                  <div>
+                    <span class="font-bold text-slate-900">${escapeHtml(tTitle)}</span>
+                    <span class="ml-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full ${isDone ? 'bg-emerald-100 text-emerald-700' : isRej ? 'bg-rose-100 text-rose-700' : 'bg-sky-100 text-sky-700'}">${escapeHtml(ut.status || 'started')}</span>
+                  </div>
+                  ${!isDone && !isRej ? `
+                    <button
+                      type="button"
+                      onclick="updateStartedTaskStatus('${escapeHtml(ut.id)}', 'completed'); setTimeout(runAffClickLookup, 400);"
+                      class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold cursor-pointer"
+                    >
+                      Mark Completed &amp; Pay
+                    </button>
+                  ` : `<span class="text-[10px] font-bold text-slate-400">Already ${escapeHtml(ut.status)}</span>`}
+                </div>
+              `;
+            }).join('')}
+          </div>`
+        : `<p class="mt-1.5 text-[11px] text-slate-500">No started task record found under User Tasks for this exact offer yet.</p>`;
+
       out.innerHTML = `
-        <div class="flex flex-wrap items-center justify-between gap-2 bg-emerald-50/70 border border-emerald-200/80 rounded-xl px-3 py-2 text-slate-800">
-          <div>
-            <strong>User:</strong> ${escapeHtml(res.userName || '-')}
-            <span class="mx-1.5 text-slate-400">•</span>
-            <strong>ID:</strong> <span class="font-mono">${escapeHtml(res.userId || '-')}</span>
-            <span class="mx-1.5 text-slate-400">•</span>
-            <strong>Offer:</strong> ${escapeHtml(res.offerName || res.offerId || '-')}
+        <div class="bg-emerald-50/70 border border-emerald-200/80 rounded-xl px-3 py-2.5 text-slate-800">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <strong>User:</strong> ${escapeHtml(res.userName || '-')}
+              <span class="mx-1.5 text-slate-400">•</span>
+              <strong>ID:</strong> <span class="font-mono">${escapeHtml(res.userId || '-')}</span>
+              ${res.offerName || res.offerId ? `<span class="mx-1.5 text-slate-400">•</span><strong>Offer:</strong> ${escapeHtml(res.offerName || res.offerId)}` : ''}
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button
+                type="button"
+                onclick="document.getElementById('search-input').value='${escapeHtml(res.userId || '')}'; onSearch('${escapeHtml(res.userId || '')}');"
+                class="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold cursor-pointer"
+              >
+                Filter Below
+              </button>
+              <button
+                type="button"
+                onclick="copyText('${escapeHtml(res.userId || '')}')"
+                class="px-2.5 py-1 rounded-lg bg-white hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[11px] font-bold cursor-pointer"
+              >
+                Copy ID
+              </button>
+            </div>
           </div>
-          <button
-            type="button"
-            onclick="copyText('${escapeHtml(res.userId || '')}')"
-            class="px-2.5 py-1 rounded-lg bg-white hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[11px] font-bold cursor-pointer"
-          >
-            Copy ID
-          </button>
+          ${tasksHtml}
         </div>
       `;
     }
