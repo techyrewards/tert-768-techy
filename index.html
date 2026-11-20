@@ -237,6 +237,11 @@
           <span>Withdrawals</span>
           <span id="dbadge-withdrawals" class="px-1.5 py-0.5 rounded-full text-[10px]">0</span>
         </button>
+        <button onclick="switchTab('postbacks')" id="dtab-postbacks" class="dtab-btn flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer shrink-0">
+          <i data-lucide="clock-arrow-up" class="w-4 h-4"></i>
+          <span>Hold Queue</span>
+          <span id="dbadge-postbacks" class="px-1.5 py-0.5 rounded-full text-[10px]">0</span>
+        </button>
         <button onclick="switchTab('offers')" id="dtab-offers" class="dtab-btn flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer shrink-0">
           <i data-lucide="list-checks" class="w-4 h-4"></i>
           <span>Tasks</span>
@@ -342,6 +347,34 @@
         <h3 class="text-sm font-extrabold text-slate-900 mb-3">Referral Activity</h3>
         <div id="referral-activity-container" class="space-y-2"></div>
       </div>
+    </section>
+
+    <!-- ==================== SECTION 1D: POSTBACK HOLD QUEUE ==================== -->
+    <section id="view-postbacks" class="hidden space-y-4">
+      <div class="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 class="text-sm sm:text-base font-extrabold text-slate-900">Postback Payout Hold Queue</h3>
+          <p class="text-xs text-slate-500 mt-0.5">Review incoming conversions on hold and release wallet credits once you receive network payout.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <span id="pb-pending-summary" class="px-3 py-1.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 text-xs font-extrabold">0 pending • ₹0</span>
+          <button type="button" id="pb-approve-all-btn" onclick="approveAllPostbackQueueItems()" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-extrabold bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm transition cursor-pointer">
+            <i data-lucide="check-check" class="w-4 h-4"></i>
+            <span>Approve &amp; Credit All</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="inline-flex p-1 bg-white rounded-2xl border border-slate-200/80 shadow-2xs">
+          <button onclick="setPostbackFilter('pending')" id="pbfilter-pending" class="pbfilter-btn px-4 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer">Pending</button>
+          <button onclick="setPostbackFilter('approved')" id="pbfilter-approved" class="pbfilter-btn px-4 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer">Approved</button>
+          <button onclick="setPostbackFilter('rejected')" id="pbfilter-rejected" class="pbfilter-btn px-4 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer">Rejected</button>
+          <button onclick="setPostbackFilter('all')" id="pbfilter-all" class="pbfilter-btn px-4 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer">All</button>
+        </div>
+      </div>
+
+      <div id="postbacks-container" class="space-y-3"></div>
     </section>
 
     <!-- ==================== SECTION 2: WITHDRAWAL REQUESTS ==================== -->
@@ -472,7 +505,7 @@
   </main>
 
   <!-- ==================== MOBILE BOTTOM NAVIGATION ==================== -->
-  <nav class="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur border-t border-slate-200/90 px-1 py-1.5 grid grid-cols-7 gap-0.5">
+  <nav class="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur border-t border-slate-200/90 px-1 py-1.5 grid grid-cols-8 gap-0.5">
     <button onclick="switchTab('tasks')" id="mtab-tasks" class="mtab-btn flex flex-col items-center justify-center py-1 px-0.5 rounded-xl text-[9px] font-bold transition relative cursor-pointer">
       <i data-lucide="file-check-2" class="w-4 h-4 mb-0.5"></i>
       <span>Proofs</span>
@@ -492,6 +525,11 @@
       <i data-lucide="wallet" class="w-4 h-4 mb-0.5"></i>
       <span>Payouts</span>
       <span id="mbadge-withdrawals" class="absolute -top-0.5 right-0.5 px-1 py-0.2 rounded-full text-[8px] font-extrabold bg-indigo-500 text-white">0</span>
+    </button>
+    <button onclick="switchTab('postbacks')" id="mtab-postbacks" class="mtab-btn flex flex-col items-center justify-center py-1 px-0.5 rounded-xl text-[9px] font-bold transition relative cursor-pointer">
+      <i data-lucide="clock-arrow-up" class="w-4 h-4 mb-0.5"></i>
+      <span>Hold</span>
+      <span id="mbadge-postbacks" class="absolute -top-0.5 right-0.5 px-1 py-0.2 rounded-full text-[8px] font-extrabold bg-amber-500 text-white">0</span>
     </button>
     <button onclick="switchTab('offers')" id="mtab-offers" class="mtab-btn flex flex-col items-center justify-center py-1 px-0.5 rounded-xl text-[9px] font-bold transition relative cursor-pointer">
       <i data-lucide="list-checks" class="w-4 h-4 mb-0.5"></i>
@@ -793,7 +831,8 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
       users: [],
       tickets: [],
       adminLogs: [],
-      offerClicks: []
+      offerClicks: [],
+      postbackQueue: []
     };
 
     let currentTab = 'tasks';
@@ -803,6 +842,8 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
     let wdFilter = 'Pending';
     let offerFilter = 'All';
     let ticketFilter = 'Open';
+    let postbackFilter = 'pending';
+    let postbackApproveInFlight = false;
     let searchTerm = '';
     let rejectCtx = null;
     let payCtxId = null;
@@ -965,6 +1006,7 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
             hasInstallTracking: Boolean(data.hasInstallTracking || data.installTracking),
             collectMobile: Boolean(data.collectMobile),
             allowProofSubmission: Boolean(data.allowProofSubmission ?? data.requireProof),
+            postbackEnabled: Boolean(data.postbackEnabled),
             customFieldLabel: String(data.customFieldLabel || '').trim(),
             autoRemoveByStarts: Boolean(data.autoRemoveByStarts),
             maxStartedUsers: Number(data.maxStartedUsers || 0) || null,
@@ -1035,6 +1077,14 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
           .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
         render();
       }, (err) => console.warn('Offer clicks listener:', err.message));
+
+      db.collection('postbackQueue').limit(200).onSnapshot((snap) => {
+        setDbStatus(true);
+        state.postbackQueue = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+        render();
+      }, (err) => console.warn('Postback queue listener:', err.message));
     }
 
     // ==================== EMAIL & PASSWORD LOGIN (FIREBASE AUTH) ====================
@@ -1114,7 +1164,7 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
     // ==================== NAVIGATION & RENDER ====================
     function switchTab(tab) {
       currentTab = tab;
-      ['tasks', 'started', 'referrals', 'withdrawals', 'offers', 'tickets', 'settings', 'logs'].forEach((t) => {
+      ['tasks', 'started', 'referrals', 'postbacks', 'withdrawals', 'offers', 'tickets', 'settings', 'logs'].forEach((t) => {
         const view = document.getElementById(`view-${t}`);
         if (view) view.classList.toggle('hidden', t !== tab);
       });
@@ -1157,6 +1207,7 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
       renderStartedTasks();
       renderUserAccounts();
       renderReferrals();
+      renderPostbackQueue();
       renderWithdrawals();
       renderOffers();
       renderTickets();
@@ -1173,6 +1224,8 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
       const paidWds = state.withdrawals.filter((w) => w.status === 'Paid');
       const paidVal = roundMoney(paidWds.reduce((s, i) => s + roundMoney(i.amount), 0));
       const openTickets = state.tickets.filter((tk) => tk.status !== 'Resolved');
+      const pendingPb = (state.postbackQueue || []).filter((q) => String(q.status || 'pending').toLowerCase() === 'pending');
+      const pendingPbAmt = roundMoney(pendingPb.reduce((sum, q) => sum + roundMoney(q.reward), 0));
 
       document.getElementById('stat-pending-tasks').textContent = pTasks.length;
       document.getElementById('stat-pending-tasks-amt').textContent = `${formatMoney(pTaskVal)} value`;
@@ -1198,6 +1251,17 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
 
       const mbadgeTasks = document.getElementById('mbadge-tasks');
       if (mbadgeTasks) mbadgeTasks.textContent = pTasks.length;
+      const dbadgePb = document.getElementById('dbadge-postbacks');
+      if (dbadgePb) dbadgePb.textContent = pendingPb.length;
+      const mbadgePb = document.getElementById('mbadge-postbacks');
+      if (mbadgePb) mbadgePb.textContent = pendingPb.length;
+      const pbSummary = document.getElementById('pb-pending-summary');
+      if (pbSummary) pbSummary.textContent = `${pendingPb.length} pending • ${formatMoney(pendingPbAmt)}`;
+      const approveAllBtn = document.getElementById('pb-approve-all-btn');
+      if (approveAllBtn) {
+        approveAllBtn.disabled = postbackApproveInFlight || pendingPb.length === 0;
+        approveAllBtn.classList.toggle('opacity-50', postbackApproveInFlight || pendingPb.length === 0);
+      }
       const mbadgeOffers = document.getElementById('mbadge-offers');
       if (mbadgeOffers) mbadgeOffers.textContent = activeOff.length;
       if (document.getElementById('mbadge-withdrawals')) document.getElementById('mbadge-withdrawals').textContent = pWds.length;
@@ -1211,7 +1275,7 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
     }
 
     function updateNavStyles() {
-      ['tasks', 'started', 'referrals', 'withdrawals', 'offers', 'tickets', 'settings'].forEach((t) => {
+      ['tasks', 'started', 'referrals', 'postbacks', 'withdrawals', 'offers', 'tickets', 'settings'].forEach((t) => {
         const dBtn = document.getElementById(`dtab-${t}`);
         const mBtn = document.getElementById(`mtab-${t}`);
         if (t === currentTab) {
@@ -1256,6 +1320,13 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
         if (el) el.className = f === ticketFilter
           ? 'tkfilter-btn px-4 py-1.5 rounded-xl text-xs font-bold bg-emerald-500 text-white shadow-2xs transition cursor-pointer'
           : 'tkfilter-btn px-4 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 transition cursor-pointer';
+      });
+
+      ['pending', 'approved', 'rejected', 'all'].forEach((f) => {
+        const el = document.getElementById(`pbfilter-${f}`);
+        if (el) el.className = f === postbackFilter
+          ? 'pbfilter-btn px-4 py-1.5 rounded-xl text-xs font-bold bg-emerald-500 text-white shadow-2xs transition cursor-pointer'
+          : 'pbfilter-btn px-4 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 transition cursor-pointer';
       });
     }
 
@@ -2197,6 +2268,320 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
       if (window.lucide) lucide.createIcons();
     }
 
+    // ==================== POSTBACK HOLD QUEUE LOGIC ====================
+    function setPostbackFilter(f) {
+      postbackFilter = f;
+      render();
+    }
+
+    function renderPostbackQueue() {
+      const box = document.getElementById('postbacks-container');
+      if (!box) return;
+
+      const list = (state.postbackQueue || []).filter((item) => {
+        const st = String(item.status || 'pending').toLowerCase();
+        const okFilter = postbackFilter === 'all' || st === postbackFilter;
+        const okSearch = !searchTerm ||
+          String(item.username || '').toLowerCase().includes(searchTerm) ||
+          String(item.userId || '').toLowerCase().includes(searchTerm) ||
+          String(item.offerName || '').toLowerCase().includes(searchTerm) ||
+          String(item.clickId || '').toLowerCase().includes(searchTerm) ||
+          String(item.txnId || '').toLowerCase().includes(searchTerm);
+        return okFilter && okSearch;
+      });
+
+      if (!list.length) {
+        box.innerHTML = emptyCard('No postback hold items in this filter');
+        return;
+      }
+
+      box.innerHTML = list.map((item) => {
+        const st = String(item.status || 'pending').toLowerCase();
+        const isPending = st === 'pending';
+        const rewardAmt = roundMoney(item.reward);
+        const displayUser = item.username || item.userId || 'User';
+        const badgeHtml = st === 'approved'
+          ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Approved</span>`
+          : st === 'rejected'
+            ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">Rejected</span>`
+            : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">On Hold</span>`;
+
+        return `
+          <div class="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="space-y-1 min-w-0">
+              <div class="flex flex-wrap items-center gap-2">
+                <h4 class="text-sm font-extrabold text-slate-900">${escapeHtml(displayUser)}</h4>
+                ${badgeHtml}
+                <span class="text-[11px] text-slate-400">• ${escapeHtml(item.date || '')}</span>
+              </div>
+              <p class="text-xs text-slate-700">
+                Offer: <strong class="text-slate-900">${escapeHtml(item.offerName || item.offerId || 'Offer')}</strong>
+                <span class="mx-1 text-slate-300">•</span>
+                User ID: <span class="font-mono text-[11px] text-slate-600">${escapeHtml(item.userId || '-')}</span>
+              </p>
+              <p class="text-[11px] text-slate-500 font-mono break-all">
+                Click ID: ${escapeHtml(item.clickId || item.id)}${item.txnId ? ` • Txn: ${escapeHtml(item.txnId)}` : ''}
+              </p>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-between sm:justify-end gap-2.5 pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100 shrink-0">
+              <span class="px-3.5 py-1.5 rounded-full bg-emerald-500 text-white font-extrabold text-xs">
+                +${formatMoney(rewardAmt)}
+              </span>
+              ${isPending ? `
+                <button type="button" onclick="approvePostbackQueueItem('${escapeHtml(item.id)}')" class="inline-flex items-center gap-1 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition cursor-pointer">
+                  <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                  <span>Approve &amp; Credit</span>
+                </button>
+                <button type="button" onclick="rejectPostbackQueueItem('${escapeHtml(item.id)}')" class="inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-600 transition cursor-pointer">
+                  <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                  <span>Reject</span>
+                </button>
+              ` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function approvePostbackQueueItem(queueId) {
+      const item = (state.postbackQueue || []).find((q) => String(q.id) === String(queueId));
+      if (!item) return;
+
+      const queueRef = db.collection('postbackQueue').doc(String(item.id));
+      const userIdStr = String(item.userId || '').trim();
+      const offerIdStr = String(item.offerId || '').trim();
+      if (!userIdStr) {
+        toast('Missing userId in postback queue item.', 'error');
+        return;
+      }
+
+      const userRef = db.collection('users').doc(userIdStr);
+      const clickRef = item.clickId ? db.collection('offerClicks').doc(String(item.clickId)) : null;
+      const taskRef = offerIdStr ? db.collection('userTasks').doc(`${userIdStr}_${offerIdStr}`) : null;
+      const txnRef = db.collection('transactions').doc();
+      const nowStr = formatNowDate();
+
+      try {
+        const outcome = await db.runTransaction(async (tx) => {
+          const qSnap = await tx.get(queueRef);
+          if (!qSnap.exists) return { status: 'missing', amount: 0 };
+          const qData = qSnap.data() || {};
+          if (String(qData.status || '').toLowerCase() !== 'pending') {
+            return { status: 'already_done', amount: 0 };
+          }
+
+          const amount = roundMoney(qData.reward);
+          if (!Number.isFinite(amount) || amount <= 0) {
+            throw new Error('Invalid reward amount in queue item.');
+          }
+
+          tx.update(queueRef, {
+            status: 'approved',
+            approvedAt: FieldValue.serverTimestamp(),
+            approvedBy: auth.currentUser?.email || ALLOWED_ADMIN_EMAIL
+          });
+
+          tx.set(userRef, {
+            balance: FieldValue.increment(amount),
+            earned: FieldValue.increment(amount)
+          }, { merge: true });
+
+          if (taskRef) {
+            tx.set(taskRef, {
+              userId: userIdStr,
+              offerId: offerIdStr,
+              status: 'completed',
+              completedAt: FieldValue.serverTimestamp()
+            }, { merge: true });
+          }
+
+          if (clickRef) {
+            tx.set(clickRef, {
+              status: 'converted',
+              convertedAt: FieldValue.serverTimestamp()
+            }, { merge: true });
+          }
+
+          tx.set(txnRef, {
+            userId: userIdStr,
+            category: 'earnings',
+            type: 'completed',
+            badge: 'Task',
+            amount: amount,
+            title: `₹${amount.toFixed(2)} Cashback`,
+            subtitle: `Postback (${qData.eventName || 'conversion'}) - ${qData.offerName || offerIdStr || 'Offer'}`,
+            txnId: qData.txnId || '',
+            clickId: qData.clickId || '',
+            status: 'Completed',
+            date: nowStr,
+            createdAt: FieldValue.serverTimestamp()
+          });
+
+          return { status: 'approved', amount, qData };
+        });
+
+        if (outcome.status === 'approved') {
+          await logAdminAction(
+            'APPROVE_POSTBACK_QUEUE',
+            'postbackQueue',
+            item.id,
+            `Credited ${formatMoney(outcome.amount)} to ${item.username || userIdStr} (${item.offerName || offerIdStr})`
+          );
+          toast(`Credited ${formatMoney(outcome.amount)} to ${item.username || userIdStr}!`, 'success');
+        } else if (outcome.status === 'already_done') {
+          toast('This postback item was already processed.', 'info');
+        }
+      } catch (err) {
+        console.error('Approve postback queue error:', err);
+        toast(`Failed to approve postback: ${err.message}`, 'error');
+      }
+    }
+
+    async function approveAllPostbackQueueItems() {
+      if (postbackApproveInFlight) return;
+      const pendingItems = (state.postbackQueue || []).filter(
+        (q) => String(q.status || 'pending').toLowerCase() === 'pending'
+      );
+      if (!pendingItems.length) {
+        toast('No pending postbacks to approve.', 'info');
+        return;
+      }
+
+      const totalAmt = roundMoney(pendingItems.reduce((s, q) => s + roundMoney(q.reward), 0));
+      if (!window.confirm(`Approve and credit ${pendingItems.length} pending postback(s) totaling ${formatMoney(totalAmt)}?`)) {
+        return;
+      }
+
+      postbackApproveInFlight = true;
+      render();
+
+      let approvedCount = 0;
+      let creditedTotal = 0;
+      let failedCount = 0;
+
+      try {
+        for (const item of pendingItems) {
+          try {
+            const queueRef = db.collection('postbackQueue').doc(String(item.id));
+            const userIdStr = String(item.userId || '').trim();
+            const offerIdStr = String(item.offerId || '').trim();
+            if (!userIdStr) {
+              failedCount += 1;
+              continue;
+            }
+            const userRef = db.collection('users').doc(userIdStr);
+            const clickRef = item.clickId ? db.collection('offerClicks').doc(String(item.clickId)) : null;
+            const taskRef = offerIdStr ? db.collection('userTasks').doc(`${userIdStr}_${offerIdStr}`) : null;
+            const txnRef = db.collection('transactions').doc();
+            const nowStr = formatNowDate();
+
+            const res = await db.runTransaction(async (tx) => {
+              const qSnap = await tx.get(queueRef);
+              if (!qSnap.exists) return 0;
+              const qData = qSnap.data() || {};
+              if (String(qData.status || '').toLowerCase() !== 'pending') return 0;
+              const amount = roundMoney(qData.reward);
+              if (!Number.isFinite(amount) || amount <= 0) return 0;
+
+              tx.update(queueRef, {
+                status: 'approved',
+                approvedAt: FieldValue.serverTimestamp(),
+                approvedBy: auth.currentUser?.email || ALLOWED_ADMIN_EMAIL
+              });
+              tx.set(userRef, {
+                balance: FieldValue.increment(amount),
+                earned: FieldValue.increment(amount)
+              }, { merge: true });
+              if (taskRef) {
+                tx.set(taskRef, {
+                  userId: userIdStr,
+                  offerId: offerIdStr,
+                  status: 'completed',
+                  completedAt: FieldValue.serverTimestamp()
+                }, { merge: true });
+              }
+              if (clickRef) {
+                tx.set(clickRef, {
+                  status: 'converted',
+                  convertedAt: FieldValue.serverTimestamp()
+                }, { merge: true });
+              }
+              tx.set(txnRef, {
+                userId: userIdStr,
+                category: 'earnings',
+                type: 'completed',
+                badge: 'Task',
+                amount: amount,
+                title: `₹${amount.toFixed(2)} Cashback`,
+                subtitle: `Postback (${qData.eventName || 'conversion'}) - ${qData.offerName || offerIdStr || 'Offer'}`,
+                txnId: qData.txnId || '',
+                clickId: qData.clickId || '',
+                status: 'Completed',
+                date: nowStr,
+                createdAt: FieldValue.serverTimestamp()
+              });
+              return amount;
+            });
+
+            if (res > 0) {
+              approvedCount += 1;
+              creditedTotal = roundMoney(creditedTotal + res);
+            }
+          } catch (itemErr) {
+            failedCount += 1;
+            console.warn('Batch item approve failed:', item.id, itemErr);
+          }
+        }
+
+        if (approvedCount > 0) {
+          await logAdminAction(
+            'APPROVE_ALL_POSTBACKS',
+            'postbackQueue',
+            'batch',
+            `Approved ${approvedCount} postback(s) and credited ${formatMoney(creditedTotal)}`
+          );
+          toast(`Approved ${approvedCount} item(s) & credited ${formatMoney(creditedTotal)}!`, 'success');
+        } else if (failedCount > 0) {
+          toast(`Could not approve ${failedCount} item(s). Check item details.`, 'error');
+        }
+      } finally {
+        postbackApproveInFlight = false;
+        render();
+      }
+    }
+
+    async function rejectPostbackQueueItem(queueId) {
+      const item = (state.postbackQueue || []).find((q) => String(q.id) === String(queueId));
+      if (!item) return;
+      if (!window.confirm(`Reject held postback for ${item.username || item.userId} (${formatMoney(item.reward)})?`)) return;
+
+      try {
+        await db.collection('postbackQueue').doc(String(item.id)).set({
+          status: 'rejected',
+          rejectedAt: FieldValue.serverTimestamp(),
+          rejectedBy: auth.currentUser?.email || ALLOWED_ADMIN_EMAIL
+        }, { merge: true });
+
+        if (item.clickId) {
+          await db.collection('offerClicks').doc(String(item.clickId)).set({
+            status: 'rejected',
+            rejectedAt: FieldValue.serverTimestamp()
+          }, { merge: true });
+        }
+
+        await logAdminAction(
+          'REJECT_POSTBACK_QUEUE',
+          'postbackQueue',
+          item.id,
+          `Rejected held postback for ${item.username || item.userId} (${formatMoney(item.reward)})`
+        );
+        toast('Held postback rejected without crediting wallet.', 'info');
+      } catch (err) {
+        toast(`Failed to reject postback: ${err.message}`, 'error');
+      }
+    }
+
     // ==================== WITHDRAWALS LOGIC ====================
     function setWdFilter(f) {
       wdFilter = f;
@@ -2732,6 +3117,7 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
         document.getElementById('om-max-started-users').value = o.maxStartedUsers || '';
         document.getElementById('om-collect-mobile').checked = Boolean(o.collectMobile);
         document.getElementById('om-allow-proof').checked = Boolean(o.allowProofSubmission ?? o.requireProof);
+        document.getElementById('om-postback-enabled').checked = Boolean(o.postbackEnabled);
         document.getElementById('om-custom-field-label').value = o.customFieldLabel || '';
         updateOfferLogoPreview(o.logo || '');
       } else {
@@ -2748,6 +3134,7 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
         document.getElementById('om-max-started-users').value = '';
         document.getElementById('om-collect-mobile').checked = false;
         document.getElementById('om-allow-proof').checked = false;
+        document.getElementById('om-postback-enabled').checked = false;
         document.getElementById('om-custom-field-label').value = '';
         updateOfferLogoPreview('');
       }
@@ -2785,6 +3172,7 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
       const hasInstallTracking = document.getElementById('om-install-tracking').checked;
       const collectMobile = document.getElementById('om-collect-mobile').checked;
       const allowProof = document.getElementById('om-allow-proof').checked;
+      const postbackEnabled = document.getElementById('om-postback-enabled').checked;
 
       const payload = {
         name: offerName,
@@ -2801,6 +3189,7 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
         collectMobile: collectMobile,
         allowProofSubmission: allowProof,
         requireProof: allowProof,
+        postbackEnabled: postbackEnabled,
         customFieldLabel: document.getElementById('om-custom-field-label').value.trim(),
         steps: document.getElementById('om-steps').value.split('\n').map((x) => x.trim()).filter(Boolean)
       };
