@@ -825,8 +825,14 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
           <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">User Issue Description</span>
           <p id="trm-user-desc" class="text-xs text-slate-800 whitespace-pre-wrap break-words leading-relaxed"></p>
         </div>
-        <div id="trm-screenshot-wrap" class="hidden space-y-1">
-          <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">Attached Screenshot</span>
+        <div id="trm-screenshot-wrap" class="hidden space-y-1.5">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">Attached Screenshot</span>
+            <button type="button" onclick="downloadProofImage(activeTicketResolveId, 'ticket')" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-900 hover:bg-emerald-600 text-white transition cursor-pointer">
+              <i data-lucide="download" class="w-3 h-3"></i>
+              <span>Save Image</span>
+            </button>
+          </div>
           <img id="trm-screenshot-img" src="" alt="Ticket Proof" class="w-full max-h-60 object-contain rounded-2xl border border-slate-200 bg-slate-950" />
         </div>
         <div class="space-y-1.5">
@@ -1674,8 +1680,8 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
         const isKyc = String(s.category || '').toLowerCase() === 'kyc';
         const attemptNum = Number(s.attemptNumber || attemptLookup.get(s.id) || 1);
         const attemptBadge = attemptNum >= 2
-          ? `<span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-purple-100 text-purple-800 border border-purple-200">Second Check (2nd Try)</span>`
-          : `<span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-sky-50 text-sky-700 border border-sky-200">First Check (1st Try)</span>`;
+          ? `<span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-purple-100 text-purple-800 border border-purple-200">2nd Try (Final Try)</span>`
+          : `<span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-sky-50 text-sky-700 border border-sky-200">1st Try</span>`;
         return `
           <div class="bg-white rounded-3xl p-4 sm:p-5 border ${s.status === 'Rejected' ? 'border-rose-200/90' : 'border-slate-200/80'} shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div class="flex items-start gap-3.5">
@@ -1716,6 +1722,12 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
                 <i data-lucide="eye" class="w-3.5 h-3.5"></i>
                 <span>Proof</span>
               </button>
+              ${s.screenshotData ? `
+                <button type="button" onclick="downloadProofImage('${escapeHtml(s.id)}', 'submission')" title="Save proof image" class="inline-flex items-center gap-1 px-2.5 py-2 rounded-xl text-xs font-bold bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 transition cursor-pointer">
+                  <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                  <span>Save</span>
+                </button>
+              ` : ''}
               ${s.status === 'Pending' ? `
                 <button onclick="approveTask('${escapeHtml(s.id)}')" class="inline-flex items-center gap-1 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition cursor-pointer">
                   <i data-lucide="check" class="w-3.5 h-3.5"></i>
@@ -1737,26 +1749,82 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
       render();
     }
 
+    function extractMainSiteName(rawUrl) {
+      const clean = String(rawUrl || '').trim();
+      if (!clean) return '';
+      try {
+        const normalized = /^https?:\/\//i.test(clean) ? clean : `https://${clean}`;
+        const hostname = new URL(normalized).hostname.replace(/^www\./i, '');
+        const parts = hostname.split('.').filter(Boolean);
+        if (!parts.length) return '';
+        let mainPart = parts[0];
+        if (parts.length >= 3) {
+          const secondLevelTlds = new Set(['co', 'com', 'org', 'net', 'ac', 'gov', 'in']);
+          if (parts.length >= 3 && secondLevelTlds.has(parts[parts.length - 2].toLowerCase()) && parts[parts.length - 1].length === 2) {
+            mainPart = parts[parts.length - 3];
+          } else {
+            mainPart = parts[parts.length - 2];
+          }
+        }
+        return mainPart ? mainPart.charAt(0).toUpperCase() + mainPart.slice(1) : '';
+      } catch (_) {
+        return '';
+      }
+    }
+
+    function getUserTaskTimestampSec(ut) {
+      const candidates = [
+        ut.startedAt?.seconds,
+        ut.createdAt?.seconds,
+        ut.updatedAt?.seconds,
+        ut.completedAt?.seconds
+      ];
+      for (const sec of candidates) {
+        if (Number(sec) > 0) return Number(sec);
+      }
+      const clickMatch = (state.offerClicks || []).find(
+        (c) => String(c.userId || '') === String(ut.userId || '') && String(c.offerId || '') === String(ut.offerId || '')
+      );
+      if (clickMatch?.createdAt?.seconds) return Number(clickMatch.createdAt.seconds);
+      return 0;
+    }
+
+    function getUserTaskDaysPassed(ut) {
+      const sec = getUserTaskTimestampSec(ut);
+      if (!sec) return 0;
+      const nowSec = Math.floor(Date.now() / 1000);
+      return Math.max(0, Math.floor((nowSec - sec) / 86400));
+    }
+
     function renderStartedTasks() {
       const box = document.getElementById('started-container');
       if (!box) return;
 
-      const list = state.userTasks.filter((ut) => {
-        const st = String(ut.status || 'started').toLowerCase();
-        const targetFilter = startedFilter.toLowerCase();
-        const okFilter = targetFilter === 'started'
-          ? (st === 'started' || st === 'submitted')
-          : st === targetFilter;
-        const offer = state.offers.find((o) => String(o.id) === String(ut.offerId));
-        const offerName = String(ut.offerName || ut.offerSnapshot?.title || offer?.name || '').toLowerCase();
-        const okSearch = !searchTerm ||
-          String(ut.userId || '').toLowerCase().includes(searchTerm) ||
-          String(ut.userName || '').toLowerCase().includes(searchTerm) ||
-          String(ut.offerId || '').toLowerCase().includes(searchTerm) ||
-          offerName.includes(searchTerm) ||
-          st.includes(searchTerm);
-        return okFilter && okSearch;
-      });
+      const list = state.userTasks
+        .filter((ut) => {
+          const st = String(ut.status || 'started').toLowerCase();
+          const targetFilter = startedFilter.toLowerCase();
+          const okFilter = targetFilter === 'started'
+            ? (st === 'started' || st === 'submitted')
+            : st === targetFilter;
+          const offer = state.offers.find((o) => String(o.id) === String(ut.offerId));
+          const offerName = String(ut.offerName || ut.offerSnapshot?.title || offer?.name || '').toLowerCase();
+          const siteName = extractMainSiteName(ut.offerUrl || ut.url || ut.offerSnapshot?.url || offer?.url || '').toLowerCase();
+          const okSearch = !searchTerm ||
+            String(ut.userId || '').toLowerCase().includes(searchTerm) ||
+            String(ut.userName || '').toLowerCase().includes(searchTerm) ||
+            String(ut.offerId || '').toLowerCase().includes(searchTerm) ||
+            offerName.includes(searchTerm) ||
+            siteName.includes(searchTerm) ||
+            st.includes(searchTerm);
+          return okFilter && okSearch;
+        })
+        .sort((a, b) => {
+          const daysA = getUserTaskDaysPassed(a);
+          const daysB = getUserTaskDaysPassed(b);
+          if (daysA !== daysB) return daysA - daysB; // New to old (0 days passed first, older below)
+          return getUserTaskTimestampSec(b) - getUserTaskTimestampSec(a);
+        });
 
       if (!list.length) {
         box.innerHTML = emptyCard('No user tasks in this filter');
@@ -1769,11 +1837,16 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
         const status = ut.status || 'started';
         const isDone = String(status).toLowerCase() === 'completed';
         const isRej = String(status).toLowerCase() === 'rejected';
-        const pillClass = isDone
-          ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80'
-          : isRej
-            ? 'bg-rose-50 text-rose-700 border-rose-200/80'
-            : 'bg-sky-50 text-sky-700 border-sky-200/80';
+        const rawOfferUrl = ut.offerUrl || ut.url || ut.offerSnapshot?.url || offer?.url || '';
+        const siteName = extractMainSiteName(rawOfferUrl);
+        const daysPassed = getUserTaskDaysPassed(ut);
+        const daysLabel = daysPassed === 0 ? '0 days passed (Today)' : `${daysPassed} day${daysPassed === 1 ? '' : 's'} passed`;
+
+        const headerBadgeHtml = (!isDone && !isRej)
+          ? (siteName
+              ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/80">${escapeHtml(siteName)}</span>`
+              : '')
+          : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold border ${isDone ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80' : 'bg-rose-50 text-rose-700 border-rose-200/80'}">${escapeHtml(status)}</span>`;
 
         const offerSupportsInstallTracking = Boolean(
           offer?.hasInstallTracking || ut.offerSnapshot?.hasInstallTracking || ut.installTracked
@@ -1795,7 +1868,8 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
             <div class="space-y-1 min-w-0 flex-1">
               <div class="flex flex-wrap items-center gap-2">
                 <h4 class="text-sm font-extrabold text-slate-900">${escapeHtml(title)}</h4>
-                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border ${pillClass}">${escapeHtml(status)}</span>
+                ${headerBadgeHtml}
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200/80">${daysLabel}</span>
                 ${offerSupportsInstallTracking ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-50 text-sky-700 border border-sky-200/80">Install Tracking</span>` : ''}
               </div>
               <p class="text-xs text-slate-600">
@@ -1821,9 +1895,6 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
                 </button>
                 <button onclick="openReject('startedTask', '${escapeHtml(ut.id)}')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-600 transition cursor-pointer">
                   Reject
-                </button>
-                <button onclick="removeUserStartedTask('${escapeHtml(ut.id)}')" title="Remove Started Task" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-rose-100 text-slate-700 hover:text-rose-700 transition cursor-pointer">
-                  Remove
                 </button>
               ` : `<span class="text-[11px] font-semibold text-slate-400">Record retained in My Offers</span>`}
             </div>
@@ -2371,7 +2442,13 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
         : '';
 
       const imgHtml = s.screenshotData
-        ? `<img src="${escapeHtml(s.screenshotData)}" alt="Proof Screenshot" class="w-full max-h-72 object-contain rounded-xl border border-slate-700 bg-black mx-auto" />`
+        ? `<div class="relative group">
+            <img src="${escapeHtml(s.screenshotData)}" alt="Proof Screenshot" class="w-full max-h-72 object-contain rounded-xl border border-slate-700 bg-black mx-auto" />
+            <button type="button" onclick="downloadProofImage('${escapeHtml(s.id)}', 'submission')" title="Save image to Photos / Downloads" class="mt-2 w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-slate-800 hover:bg-emerald-600 text-white border border-slate-700 transition cursor-pointer">
+              <i data-lucide="download" class="w-3.5 h-3.5"></i>
+              <span>Save Image</span>
+            </button>
+          </div>`
         : `<div class="py-3 text-center space-y-2">
             <div class="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto">
               <i data-lucide="badge-check" class="w-6 h-6"></i>
@@ -2865,8 +2942,8 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
         document.getElementById('rm-title').textContent = 'Reject Task Proof';
         document.getElementById('rm-desc').textContent = 'Select why this proof failed verification:';
       } else if (type === 'startedTask') {
-        document.getElementById('rm-title').textContent = 'Reject Ongoing Offer';
-        document.getElementById('rm-desc').textContent = 'Choose a reason. The offer record will remain in the user’s Rejected tab:';
+        document.getElementById('rm-title').textContent = 'Final Reject (No Retries)';
+        document.getElementById('rm-desc').textContent = 'Non-proof tasks do not have retries—this first reject is final and moves the offer to Rejected:';
       } else {
         document.getElementById('rm-title').textContent = 'Reject & Refund Payout';
         document.getElementById('rm-desc').textContent = 'Amount will be refunded to user wallet:';
@@ -2969,7 +3046,8 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
                 String(other.taskId || '') === String(s.taskId || '') &&
                 other.status === 'Rejected'
             ).length;
-            const isSecondRejection = (priorRejectedCount + 1) >= 2;
+            const totalTriesAfterThis = Math.max(Number(s.attemptNumber || 0), priorRejectedCount + 1);
+            const isFinalSecondReject = totalTriesAfterThis >= 2;
 
             const alreadyProcessed = await db.runTransaction(async (tx) => {
               const snap = await tx.get(subRef);
@@ -2977,6 +3055,7 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
 
               tx.update(subRef, {
                 status: 'Rejected',
+                attemptNumber: totalTriesAfterThis,
                 rejectReason: reason,
                 rejectedAt: FieldValue.serverTimestamp()
               });
@@ -2985,7 +3064,9 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
                 tx.set(utRef, {
                   userId: s.userId,
                   offerId: s.taskId,
-                  status: isSecondRejection ? 'rejected' : 'started',
+                  status: isFinalSecondReject ? 'rejected' : 'started',
+                  proofAttemptsUsed: totalTriesAfterThis,
+                  maxProofAttempts: 2,
                   rejectReason: reason
                 }, { merge: true });
               }
@@ -3009,10 +3090,13 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
 
             if (alreadyProcessed) {
               toast('This submission has already been processed.', 'info');
-            } else {
-              await logAdminAction('REJECT_SUBMISSION', 'submissions', s.id, `Rejected "${s.taskName}" for ${s.userName}: ${reason}`);
+            } else if (isFinalSecondReject) {
+              await logAdminAction('REJECT_SUBMISSION_FINAL', 'submissions', s.id, `Final Reject (2nd try) "${s.taskName}" for ${s.userName}: ${reason}`);
               setTaskFilter('Rejected');
-              showRejectionAlert(`Alert: ${s.userName || 'User'}'s "${s.taskName || 'Task'}" submission moved to Rejected (${reason}).`);
+              showRejectionAlert(`Final Reject (2nd Try): ${s.userName || 'User'}'s "${s.taskName || 'Task'}" moved to Rejected (${reason}).`);
+            } else {
+              await logAdminAction('REJECT_SUBMISSION_TRY1', 'submissions', s.id, `Rejected 1st try "${s.taskName}" for ${s.userName} (1 retry remaining): ${reason}`);
+              toast(`1st try rejected (${reason}). Task stays in Ongoing for 2nd & final try.`, 'info');
             }
           }
         } else {
@@ -3106,8 +3190,6 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
         const isKyc = o.category === 'kyc';
         const startedCount = getOfferStartedCount(o.id);
         const hasStartCap = Boolean(o.autoRemoveByStarts) && Number(o.maxStartedUsers || 0) > 0;
-        const daysPassed = getOfferDaysPassed(o);
-        const daysLabel = daysPassed === 0 ? 'Today (0 days)' : `${daysPassed} day${daysPassed === 1 ? '' : 's'} passed`;
         const avatarHtml = o.logo
           ? `<img src="${escapeHtml(o.logo)}" alt="${escapeHtml(o.name)}" class="w-12 h-12 rounded-2xl object-cover shrink-0 border border-slate-200 bg-white" />`
           : `<div class="w-12 h-12 rounded-2xl ${isKyc ? 'bg-emerald-500 text-white' : 'bg-indigo-500 text-white'} font-extrabold text-base flex items-center justify-center shrink-0">
@@ -3131,7 +3213,6 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
                     ${o.customFieldLabel ? `<span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-cyan-50 text-cyan-800 border border-cyan-200/80">${escapeHtml(o.customFieldLabel)}</span>` : ''}
                     ${o.videoUrl ? `<span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-purple-50 text-purple-800 border border-purple-200/80">Video Guide</span>` : ''}
                     ${hasStartCap ? `<span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-amber-50 text-amber-800 border border-amber-200/80">Cap ${startedCount}/${o.maxStartedUsers}</span>` : ''}
-                    <span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-slate-100 text-slate-700 border border-slate-200/80">${daysLabel}</span>
                   </div>
                   <h4 class="text-base font-extrabold text-slate-900 mt-0.5 truncate">${escapeHtml(o.name)}</h4>
                   <p class="text-xs text-slate-500 truncate">${escapeHtml(o.subtitle)}</p>
@@ -3619,6 +3700,10 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
       document.getElementById('pm-meta-grid').classList.add('hidden');
       document.getElementById('pm-screenshot').innerHTML = `
         <img src="${escapeHtml(tk.screenshotData)}" alt="Ticket Screenshot" class="w-full max-h-80 object-contain rounded-xl border border-slate-700 bg-black mx-auto" />
+        <button type="button" onclick="downloadProofImage('${escapeHtml(tk.id)}', 'ticket')" class="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-slate-800 hover:bg-emerald-600 text-white border border-slate-700 transition cursor-pointer">
+          <i data-lucide="download" class="w-3.5 h-3.5"></i>
+          <span>Save Image</span>
+        </button>
         <p class="text-xs text-slate-300 pt-1">${escapeHtml(tk.description || '')}</p>
       `;
       document.getElementById('pm-footer').innerHTML = `
@@ -4072,6 +4157,56 @@ Upload screenshot in My Offers" class="w-full px-3.5 py-2 text-xs sm:text-sm bg-
       if (el) {
         el.classList.add('hidden');
         el.classList.remove('flex');
+      }
+    }
+
+    async function downloadProofImage(recordId, sourceType = 'submission') {
+      let dataUrl = '';
+      let baseName = 'proof';
+      if (sourceType === 'ticket') {
+        const tk = state.tickets.find((x) => String(x.id) === String(recordId));
+        dataUrl = tk?.screenshotData || '';
+        baseName = `${(tk?.offerName || 'ticket').replace(/[^a-z0-9_-]/gi, '_')}_${(tk?.userName || recordId).replace(/[^a-z0-9_-]/gi, '_')}`;
+      } else {
+        const sub = state.submissions.find((x) => String(x.id) === String(recordId));
+        dataUrl = sub?.screenshotData || '';
+        baseName = `${(sub?.taskName || 'proof').replace(/[^a-z0-9_-]/gi, '_')}_${(sub?.userName || recordId).replace(/[^a-z0-9_-]/gi, '_')}`;
+      }
+
+      if (!dataUrl) {
+        toast('No image attached to save.', 'error');
+        return;
+      }
+
+      try {
+        let ext = 'png';
+        const mimeMatch = String(dataUrl).match(/^data:image\/([a-zA-Z0-9+.-]+);/);
+        if (mimeMatch && mimeMatch[1]) {
+          ext = mimeMatch[1].toLowerCase().replace('jpeg', 'jpg');
+        }
+        const filename = `${baseName || 'proof'}.${ext}`;
+
+        const resp = await fetch(dataUrl);
+        const blob = await resp.blob();
+        const blobUrl = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+        toast(`Saved ${filename}`, 'success');
+      } catch (err) {
+        console.error('Download proof image error:', err);
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = `${baseName || 'proof'}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        toast('Image download started.', 'success');
       }
     }
 
